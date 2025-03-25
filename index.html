@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SunoRank - Playlist Ranking App</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>SunoRank</h1>
+            <div id="user-profile" class="hidden">
+                <span id="user-name"></span>
+                <img id="user-photo" src="" alt="Profile Photo">
+                <button id="logout-btn">Logout</button>
+            </div>
+            <div id="login-container">
+                <button id="login-btn">Login with Google</button>
+            </div>
+        </header>
+        
+        <main>
+            <!-- Auth Section -->
+            <section id="auth-section" class="section active">
+                <div class="card">
+                    <h2>Welcome to SunoRank</h2>
+                    <p>Create and vote on rankings for your favorite playlists</p>
+                    <button id="start-auth-btn">Get Started</button>
+                </div>
+            </section>
+
+            <!-- Suno Verification Section -->
+            <section id="verification-section" class="section hidden">
+                <div class="card">
+                    <h2>Verify Your Suno Account</h2>
+                    <p>To use SunoRank, you need to verify your Suno account ownership.</p>
+                    
+                    <div id="verification-steps">
+                        <div class="step">
+                            <h3>Step 1: Get Verification Code</h3>
+                            <button id="generate-code-btn">Generate Code</button>
+                            <div id="verification-code-container" class="hidden">
+                                <p>Your verification code: <span id="verification-code" class="code"></span></p>
+                            </div>
+                        </div>
+                        
+                        <div class="step">
+                            <h3>Step 2: Create a Suno Song</h3>
+                            <p>Create a song on Suno with the following style:</p>
+                            <div id="style-instruction" class="hidden">
+                                <p>Add this exact text in the style field: <span id="style-code" class="code"></span></p>
+                                <a href="https://suno.com/create" target="_blank" class="btn">Go to Suno</a>
+                            </div>
+                        </div>
+                        
+                        <div class="step">
+                            <h3>Step 3: Verify</h3>
+                            <div class="input-group">
+                                <input type="text" id="song-id" placeholder="Enter your Suno song ID">
+                                <button id="verify-btn">Verify</button>
+                            </div>
+                            <div id="verification-status"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Dashboard Section -->
+            <section id="dashboard-section" class="section hidden">
+                <div class="card">
+                    <h2>Your Playlists</h2>
+                    <button id="create-playlist-btn" class="primary-btn">Create New Playlist</button>
+                    <div id="playlists-container">
+                        <!-- Playlists will be loaded here -->
+                        <p id="no-playlists-message">You don't have any playlists yet. Create one to get started!</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Create Playlist Section -->
+            <section id="create-playlist-section" class="section hidden">
+                <div class="card">
+                    <h2>Create New Playlist</h2>
+                    <div class="form-group">
+                        <label for="playlist-url">Suno Playlist URL:</label>
+                        <div class="input-row">
+                            <input type="text" id="playlist-url" placeholder="Enter Suno playlist URL or ID">
+                            <button id="fetch-playlist-btn">Fetch Songs</button>
+                        </div>
+                        <p class="help-text">Example: https://suno.com/playlist/d36131f0-47fa-4392-bb29-d65b5ffa46ec</p>
+                    </div>
+                    <div id="playlist-name-container" class="hidden">
+                        <div class="form-group">
+                            <div class="name-display-row">
+                                <label>Playlist Name: <span id="playlist-name-display"></span></label>
+                                <button id="edit-name-btn" class="icon-btn"><i class="fas fa-edit edit-icon"></i></button>
+                            </div>
+                            <div id="edit-name-container" class="hidden">
+                                <input type="text" id="playlist-name" placeholder="Enter custom playlist name">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="items-container" class="suno-songs-container">
+                        <!-- Songs will be added here -->
+                    </div>
+                    <div class="buttons-row">
+                        <button id="cancel-create-btn" class="secondary-btn">Cancel</button>
+                        <button id="save-playlist-btn" class="primary-btn">Save Playlist</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Playlist Detail Section -->
+            <section id="playlist-detail-section" class="section hidden">
+                <div class="card">
+                    <div id="playlist-header">
+                        <h2 id="playlist-detail-name"></h2>
+                        <p id="playlist-detail-info"></p>
+                    </div>
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="ranking">Current Ranking</button>
+                        <button class="tab-btn" data-tab="vote">Vote</button>
+                        <button class="tab-btn" data-tab="share">Share</button>
+                    </div>
+                    
+                    <div id="ranking-tab" class="tab-content active">
+                        <div id="current-ranking">
+                            <!-- Current ranking will be shown here -->
+                        </div>
+                    </div>
+                    
+                    <div id="vote-tab" class="tab-content">
+                        <h3>Select your top 3 choices</h3>
+                        <div id="voting-items">
+                            <!-- Items to vote on will be loaded here -->
+                        </div>
+                        <div class="selected-items">
+                            <div id="first-choice" class="choice-slot">
+                                <span>1st Choice</span>
+                                <div class="selection"></div>
+                            </div>
+                            <div id="second-choice" class="choice-slot">
+                                <span>2nd Choice</span>
+                                <div class="selection"></div>
+                            </div>
+                            <div id="third-choice" class="choice-slot">
+                                <span>3rd Choice</span>
+                                <div class="selection"></div>
+                            </div>
+                        </div>
+                        <button id="submit-vote-btn" class="primary-btn">Submit Vote</button>
+                    </div>
+                    
+                    <div id="share-tab" class="tab-content">
+                        <h3>Share this Playlist</h3>
+                        <div class="form-group">
+                            <label for="share-link">Share Link:</label>
+                            <div class="input-row">
+                                <input type="text" id="share-link" readonly>
+                                <button id="copy-link-btn">Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="buttons-row">
+                        <button id="back-to-dashboard-btn" class="secondary-btn">Back to Dashboard</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Vote Success Section -->
+            <section id="vote-success-section" class="section hidden">
+                <div class="card">
+                    <h2>Thank You for Voting!</h2>
+                    <div id="vote-results-container">
+                        <h3>Current Ranking:</h3>
+                        <div id="vote-results">
+                            <!-- Current rankings after vote will be shown here -->
+                        </div>
+                    </div>
+                    <button id="back-to-playlist-btn" class="primary-btn">Back to Playlist</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 SunoRank</p>
+        </footer>
+    </div>
+
+    <!-- Modals -->
+    <div id="loading-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="spinner"></div>
+            <p id="loading-message">Loading...</p>
+        </div>
+    </div>
+
+    <div id="message-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <p id="modal-message"></p>
+            <button id="modal-ok-btn">OK</button>
+        </div>
+    </div>
+
+    <!-- App Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/verification.js"></script>
+    <script src="js/playlist.js"></script>
+    <script src="js/voting.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
