@@ -214,6 +214,9 @@ class VotingManager {
       const voteId = await FirebaseService.submitVote(voteData);
       
       if (voteId) {
+        // Update the vote count in the playlist document
+        await FirebaseService.updatePlaylistVoteCount(this.currentPlaylist.id);
+        
         // Load updated votes and display results
         await this.showVoteResults();
       } else {

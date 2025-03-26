@@ -11,6 +11,8 @@ class App {
     this.modalMessage = document.getElementById('modal-message');
     this.modalOkBtn = document.getElementById('modal-ok-btn');
     this.closeModalBtn = document.querySelector('.close-modal');
+    this.customModal = document.getElementById('custom-modal');
+    this.customModalContent = document.getElementById('custom-modal-content');
     
     // Initialize
     this.setupEventListeners();
@@ -18,8 +20,22 @@ class App {
   
   setupEventListeners() {
     // Modal event listeners
-    this.modalOkBtn.addEventListener('click', () => this.hideMessage());
-    this.closeModalBtn.addEventListener('click', () => this.hideMessage());
+    if (this.modalOkBtn) {
+      this.modalOkBtn.addEventListener('click', () => this.hideMessage());
+    }
+    
+    if (this.closeModalBtn) {
+      this.closeModalBtn.addEventListener('click', () => this.hideMessage());
+    }
+    
+    // Close custom modal when clicking outside content
+    if (this.customModal) {
+      this.customModal.addEventListener('click', (e) => {
+        if (e.target === this.customModal) {
+          this.closeModal();
+        }
+      });
+    }
   }
   
   // Navigation
@@ -60,6 +76,46 @@ class App {
   
   hideMessage() {
     this.messageModal.classList.add('hidden');
+  }
+  
+  // Custom modal
+  showModal(content) {
+    if (!this.customModal || !this.customModalContent) {
+      console.error('Custom modal elements not found in the DOM');
+      // Fallback to regular message if custom modal is not available
+      if (typeof content === 'string') {
+        this.showMessage(content);
+      } else if (content instanceof HTMLElement) {
+        this.showMessage(content.textContent || 'Custom content cannot be displayed');
+      }
+      return;
+    }
+    
+    // Clear previous content
+    this.customModalContent.innerHTML = '';
+    
+    // Add new content
+    if (typeof content === 'string') {
+      this.customModalContent.innerHTML = content;
+    } else if (content instanceof HTMLElement) {
+      this.customModalContent.appendChild(content);
+    }
+    
+    // Show modal
+    this.customModal.classList.remove('hidden');
+  }
+  
+  closeModal() {
+    if (!this.customModal) return;
+    
+    this.customModal.classList.add('hidden');
+    
+    // Clear content after animation
+    if (this.customModalContent) {
+      setTimeout(() => {
+        this.customModalContent.innerHTML = '';
+      }, 300);
+    }
   }
   
   // URL parameter handling

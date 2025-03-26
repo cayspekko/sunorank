@@ -197,18 +197,23 @@
     </div>
 
     <!-- Modals -->
-    <div id="loading-modal" class="modal hidden">
+    <div id="message-modal" class="modal hidden">
         <div class="modal-content">
-            <div class="spinner"></div>
-            <p id="loading-message">Loading...</p>
+            <p id="modal-message"></p>
+            <button id="modal-ok-btn" class="primary-btn">OK</button>
+        </div>
+    </div>
+    
+    <div id="custom-modal" class="modal hidden">
+        <div id="custom-modal-content" class="modal-content">
+            <!-- Content will be dynamically inserted here -->
         </div>
     </div>
 
-    <div id="message-modal" class="modal hidden">
-        <div class="modal-content">
-            <span class="close-modal">&times;</span>
-            <p id="modal-message"></p>
-            <button id="modal-ok-btn">OK</button>
+    <div id="loading-modal" class="modal hidden">
+        <div class="modal-content loading-content">
+            <div class="spinner"></div>
+            <p id="loading-message">Loading...</p>
         </div>
     </div>
 
@@ -218,6 +223,7 @@
     <script src="js/verification.js"></script>
     <script src="js/playlist.js"></script>
     <script src="js/voting.js"></script>
+    <script src="js/testing.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

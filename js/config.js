@@ -41,12 +41,20 @@ const FirebaseService = {
   },
 
   async getUserProfile(userId) {
+    // Check if we're in test mode
+    if (window.testingEnvironment && window.testingEnvironment.isTestMode) {
+      return window.testingEnvironment.getUserProfile(userId);
+    }
+    
     try {
-      const doc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
+      const docRef = db.collection(COLLECTIONS.USERS).doc(userId);
+      const doc = await docRef.get();
+      
       if (doc.exists) {
         return { id: doc.id, ...doc.data() };
+      } else {
+        return null;
       }
-      return null;
     } catch (error) {
       console.error('Error getting user profile:', error);
       return null;
@@ -81,37 +89,77 @@ const FirebaseService = {
     }
   },
 
-  async getPlaylist(playlistId) {
-    try {
-      const doc = await db.collection(COLLECTIONS.PLAYLISTS).doc(playlistId).get();
-      if (doc.exists) {
-        return { id: doc.id, ...doc.data() };
-      }
-      return null;
-    } catch (error) {
-      console.error('Error getting playlist:', error);
-      return null;
-    }
-  },
-
   async getUserPlaylists(userId) {
+    // Check if we're in test mode
+    if (window.testingEnvironment && window.testingEnvironment.isTestMode) {
+      return window.testingEnvironment.testPlaylists.filter(p => p.userId === userId);
+    }
+    
     try {
       const snapshot = await db.collection(COLLECTIONS.PLAYLISTS)
         .where('createdBy', '==', userId)
         .get();
       
-      // Sort client-side instead of using orderBy
-      return snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .sort((a, b) => {
-          // Sort by createdAt in descending order (newest first)
-          const dateA = a.createdAt ? a.createdAt.toDate() : new Date(0);
-          const dateB = b.createdAt ? b.createdAt.toDate() : new Date(0);
-          return dateB - dateA;
-        });
+      // Convert to array and sort by creation time
+      const playlists = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Update vote counts for each playlist
+      for (const playlist of playlists) {
+        try {
+          // Count the votes for this playlist
+          const votesSnapshot = await db.collection(COLLECTIONS.VOTES)
+            .where('playlistId', '==', playlist.id)
+            .get();
+            
+          // Update the vote count in our returned data
+          playlist.voteCount = votesSnapshot.size;
+        } catch (error) {
+          console.error(`Error getting vote count for playlist ${playlist.id}:`, error);
+          // Don't fail the whole operation if one count fails
+        }
+      }
+      
+      // Sort by most recently created
+      return playlists.sort((a, b) => {
+        // If there's a createdAt field, use it for sorting
+        if (a.createdAt && b.createdAt) {
+          return b.createdAt.seconds - a.createdAt.seconds;
+        }
+        return 0;
+      });
     } catch (error) {
       console.error('Error getting user playlists:', error);
       return [];
+    }
+  },
+
+  async getPlaylist(playlistId) {
+    // Check if we're in test mode
+    if (window.testingEnvironment && window.testingEnvironment.isTestMode) {
+      return window.testingEnvironment.getTestPlaylist(playlistId);
+    }
+    
+    try {
+      const docRef = db.collection(COLLECTIONS.PLAYLISTS).doc(playlistId);
+      const doc = await docRef.get();
+      
+      if (doc.exists) {
+        const playlist = { id: doc.id, ...doc.data() };
+        
+        // Get vote count
+        const voteCount = await this.getPlaylistVoteCount(playlistId);
+        playlist.voteCount = voteCount;
+        
+        return playlist;
+      } else {
+        return null;
+      }
+    } catch (error) {
+      console.error('Error getting playlist:', error);
+      return null;
     }
   },
 
@@ -148,6 +196,11 @@ const FirebaseService = {
   },
 
   async getPlaylistVotes(playlistId) {
+    // Check if we're in test mode
+    if (window.testingEnvironment && window.testingEnvironment.isTestMode) {
+      return window.testingEnvironment.getTestVotes(playlistId);
+    }
+    
     try {
       const snapshot = await db.collection(COLLECTIONS.VOTES)
         .where('playlistId', '==', playlistId)
@@ -233,4 +286,56 @@ const FirebaseService = {
       return b.thirdPlace - a.thirdPlace;
     });
   },
+  
+  // Update playlist vote count
+  async updatePlaylistVoteCount(playlistId) {
+    try {
+      // Count the votes for this playlist
+      const snapshot = await db.collection(COLLECTIONS.VOTES)
+        .where('playlistId', '==', playlistId)
+        .get();
+        
+      const voteCount = snapshot.size;
+      
+      // Update the playlist document with the new vote count
+      await db.collection(COLLECTIONS.PLAYLISTS)
+        .doc(playlistId)
+        .update({ voteCount });
+        
+      return voteCount;
+    } catch (error) {
+      console.error('Error updating playlist vote count:', error);
+      throw error;
+    }
+  },
+  
+  // Delete a playlist and all its votes
+  async deletePlaylist(playlistId) {
+    try {
+      // Use a batch for atomic operations
+      const batch = db.batch();
+      
+      // Delete the playlist document
+      const playlistRef = db.collection(COLLECTIONS.PLAYLISTS).doc(playlistId);
+      batch.delete(playlistRef);
+      
+      // Get all votes for this playlist
+      const votesSnapshot = await db.collection(COLLECTIONS.VOTES)
+        .where('playlistId', '==', playlistId)
+        .get();
+      
+      // Add all vote deletions to the batch
+      votesSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      // Commit the batch
+      await batch.commit();
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting playlist:', error);
+      throw error;
+    }
+  }
 };

@@ -112,6 +112,7 @@ class PlaylistManager {
         <div class="playlist-actions">
           <button class="view-btn">View</button>
           <button class="share-btn">Share</button>
+          <button class="delete-btn" title="Delete playlist">Delete</button>
         </div>
       `;
 
@@ -122,6 +123,11 @@ class PlaylistManager {
 
       playlistElement.querySelector('.share-btn').addEventListener('click', () => {
         this.showShareOptions(playlist.id);
+      });
+      
+      playlistElement.querySelector('.delete-btn').addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent other handlers
+        this.confirmDeletePlaylist(playlist);
       });
 
       this.playlistsContainer.appendChild(playlistElement);
@@ -503,5 +509,48 @@ class PlaylistManager {
     }
     
     return false;
+  }
+
+  // Delete playlist functionality
+  confirmDeletePlaylist(playlist) {
+    // Create modal for confirmation
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+    modalContent.innerHTML = `
+      <h2>Delete Playlist</h2>
+      <p>Are you sure you want to delete the playlist "${playlist.name}"?</p>
+      <p>This will permanently delete the playlist and all its votes. This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button id="confirm-delete-btn" class="danger-btn">Delete Playlist</button>
+        <button id="cancel-delete-btn" class="secondary-btn">Cancel</button>
+      </div>
+    `;
+    
+    // Show modal
+    app.showModal(modalContent);
+    
+    // Add event listeners
+    document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+      try {
+        app.closeModal();
+        app.showLoading('Deleting playlist...');
+        
+        // Delete the playlist
+        await FirebaseService.deletePlaylist(playlist.id);
+        
+        // Refresh the playlists
+        app.showMessage('Playlist deleted successfully');
+        await this.loadUserPlaylists();
+      } catch (error) {
+        console.error('Error deleting playlist:', error);
+        app.showMessage(`Error: ${error.message}`);
+      } finally {
+        app.hideLoading();
+      }
+    });
+    
+    document.getElementById('cancel-delete-btn').addEventListener('click', () => {
+      app.closeModal();
+    });
   }
 }
