@@ -27,8 +27,13 @@ class VotingManager {
   setupEventListeners() {
     this.submitVoteBtn.addEventListener('click', () => this.submitVote());
     this.backToPlaylistBtn.addEventListener('click', () => {
-      app.navigateTo('playlist-detail-section');
-      playlistManager.loadAndDisplayRanking();
+      if (this.currentPlaylist) {
+        // Navigate back to the playlist detail view using the playlist ID
+        playlistManager.viewPlaylist(this.currentPlaylist.id);
+      } else {
+        // Default to dashboard if no playlist is selected
+        app.navigateTo('dashboard-section');
+      }
     });
   }
   
@@ -184,41 +189,65 @@ class VotingManager {
     return true;
   }
   
+  startVoting(playlistId) {
+    if (!authService.isLoggedIn() || !authService.isVerified()) {
+      app.showMessage('Please log in to vote.');
+      return;
+    }
+
+    // Load the playlist
+    FirebaseService.getPlaylist(playlistId)
+      .then(playlist => {
+        if (!playlist) {
+          app.showMessage('Playlist not found.');
+          return;
+        }
+
+        this.setupVotingItems(playlist);
+        // Navigate to voting section with playlist ID as parameter
+        app.navigateTo('voting-section', { id: playlistId });
+      })
+      .catch(error => {
+        console.error('Error starting voting:', error);
+        app.showMessage(`Error: ${error.message}`);
+      });
+  }
+  
   async submitVote() {
+    // Validate vote
     if (!this.validateVote()) {
+      app.showMessage('Please select 3 different items for your vote');
       return;
     }
     
-    if (!authService.isLoggedIn()) {
-      app.showMessage('You need to be logged in to vote');
-      return;
-    }
-    
-    if (!this.currentPlaylist) {
-      app.showMessage('No playlist selected');
+    if (!this.currentPlaylist || !authService.isLoggedIn()) {
+      app.showMessage('You need to be logged in and select a playlist to vote');
       return;
     }
     
     try {
       app.showLoading('Submitting your vote...');
       
-      const userId = authService.getCurrentUser().uid;
       const voteData = {
         playlistId: this.currentPlaylist.id,
-        userId: userId,
+        userId: authService.getCurrentUser().uid,
         firstChoice: this.selectedItems.first,
         secondChoice: this.selectedItems.second,
-        thirdChoice: this.selectedItems.third
+        thirdChoice: this.selectedItems.third,
+        timestamp: new Date().toISOString()
       };
       
-      const voteId = await FirebaseService.submitVote(voteData);
+      // Submit vote to Firebase
+      const success = await FirebaseService.submitVote(voteData);
       
-      if (voteId) {
-        // Update the vote count in the playlist document
-        await FirebaseService.updatePlaylistVoteCount(this.currentPlaylist.id);
+      if (success) {
+        app.showMessage('Your vote has been submitted!');
         
-        // Load updated votes and display results
-        await this.showVoteResults();
+        // After successful vote, show results and update URL to reflect this state
+        this.showVoteResults();
+        
+        // Update playlist parameter in the URL to maintain state
+        app.updateUrlForSection('voting-section', { id: this.currentPlaylist.id, tab: 'results' });
       } else {
         app.showMessage('Error submitting vote. Please try again.');
       }

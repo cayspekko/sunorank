@@ -49,10 +49,15 @@ class AuthService {
           this.userVerified = userProfile.verified || false;
         }
 
-        // Navigate to appropriate section
+        // Let the router handle navigation based on current URL
         if (this.userVerified) {
-          app.navigateTo('dashboard-section');
-          playlistManager.loadUserPlaylists();
+          // If current hash is empty or auth-related, redirect to dashboard
+          if (!window.location.hash || window.location.hash === '#' || window.location.hash.startsWith('#auth')) {
+            app.navigateTo('dashboard-section');
+          } else {
+            // Otherwise let the router handle the current hash
+            app.handleRouteChange();
+          }
         } else {
           app.navigateTo('verification-section');
         }
@@ -114,19 +119,19 @@ class AuthService {
     this.signInWithGoogle();
   }
 
-  // Get current user
-  getCurrentUser() {
-    return this.currentUser;
-  }
-
-  // Check if user is logged in
+  // Helper method to check if user is logged in
   isLoggedIn() {
-    return this.currentUser !== null;
+    return !!this.currentUser;
   }
-
-  // Check if user is verified
+  
+  // Helper method to check if user is verified
   isVerified() {
     return this.userVerified;
+  }
+  
+  // Helper method to get current user
+  getCurrentUser() {
+    return this.currentUser;
   }
 
   // Set user as verified

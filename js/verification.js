@@ -148,8 +148,8 @@ class VerificationService {
           
           // Redirect to dashboard after a short delay
           setTimeout(() => {
+            // Navigate to dashboard with hash-based navigation
             app.navigateTo('dashboard-section');
-            playlistManager.loadUserPlaylists();
           }, 2000);
         } else {
           this.showVerificationMessage('Verification successful, but there was an error updating your profile. Please try again.', false);

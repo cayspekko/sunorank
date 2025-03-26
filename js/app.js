@@ -14,6 +14,16 @@ class App {
     this.customModal = document.getElementById('custom-modal');
     this.customModalContent = document.getElementById('custom-modal-content');
     
+    // Routing state
+    this.routes = {
+      '': 'auth-section',
+      '#dashboard': 'dashboard-section',
+      '#create': 'create-playlist-section',
+      '#verification': 'verification-section',
+      '#playlist': 'playlist-detail-section',
+      '#voting': 'voting-section'
+    };
+    
     // Initialize
     this.setupEventListeners();
   }
@@ -36,10 +46,103 @@ class App {
         }
       });
     }
+    
+    // Handle browser navigation
+    window.addEventListener('hashchange', () => this.handleRouteChange());
   }
   
   // Navigation
-  navigateTo(sectionId) {
+  navigateTo(sectionId, params = {}) {
+    // Hide all sections
+    this.sections.forEach(section => {
+      section.classList.add('hidden');
+    });
+    
+    // Show target section
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+      targetSection.classList.remove('hidden');
+      
+      // Update URL hash based on section
+      this.updateUrlForSection(sectionId, params);
+      
+      // Perform section-specific actions
+      if (sectionId === 'dashboard-section' && authService.isLoggedIn()) {
+        // Load playlists when navigating to dashboard
+        playlistManager.loadUserPlaylists();
+      }
+    }
+  }
+  
+  // Update URL hash based on section
+  updateUrlForSection(sectionId, params = {}) {
+    // Find the route key for this section
+    let routeKey = '';
+    for (const [key, value] of Object.entries(this.routes)) {
+      if (value === sectionId) {
+        routeKey = key;
+        break;
+      }
+    }
+    
+    if (!routeKey) return; // No matching route found
+    
+    // Remove the leading '#' if it exists
+    routeKey = routeKey.replace(/^#/, '');
+    
+    // Build URL parameters
+    let paramString = '';
+    if (Object.keys(params).length > 0) {
+      paramString = '?' + new URLSearchParams(params).toString();
+    }
+    
+    // Update hash without triggering navigation
+    const newHash = routeKey ? `#${routeKey}${paramString}` : '';
+    if (window.location.hash !== newHash) {
+      history.pushState(null, '', newHash);
+    }
+  }
+  
+  // Handle route changes (both manual and hash changes)
+  handleRouteChange() {
+    // Extract base route and parameters
+    const { baseRoute, params } = this.parseCurrentRoute();
+    
+    // Get corresponding section ID
+    const sectionId = this.routes[baseRoute] || this.routes[''];
+    
+    // Check authentication requirements for protected routes
+    if (['dashboard-section', 'create-playlist-section', 'playlist-detail-section', 'voting-section'].includes(sectionId)) {
+      if (!authService.isLoggedIn()) {
+        this.navigateTo('auth-section');
+        return;
+      }
+      
+      if (!authService.isVerified() && sectionId !== 'verification-section') {
+        this.navigateTo('verification-section');
+        return;
+      }
+    }
+    
+    // Handle specific route parameters
+    if (sectionId === 'playlist-detail-section' && params.id) {
+      // Show specific playlist
+      playlistManager.viewPlaylist(params.id);
+      return; // viewPlaylist handles section display
+    }
+    
+    if (sectionId === 'voting-section' && params.id) {
+      // Show voting for specific playlist
+      votingManager.startVoting(params.id);
+      return; // startVoting handles section display
+    }
+    
+    // Navigate to the section without updating URL (already handled)
+    this.showSection(sectionId);
+  }
+  
+  // Show section without updating URL (internal use)
+  showSection(sectionId) {
     // Hide all sections
     this.sections.forEach(section => {
       section.classList.add('hidden');
@@ -56,6 +159,24 @@ class App {
         playlistManager.loadUserPlaylists();
       }
     }
+  }
+  
+  // Parse current route from URL hash
+  parseCurrentRoute() {
+    let hash = window.location.hash || '';
+    let params = {};
+    
+    // Extract base route and parameters
+    const paramIndex = hash.indexOf('?');
+    let baseRoute = hash;
+    
+    if (paramIndex > -1) {
+      baseRoute = hash.substring(0, paramIndex);
+      const paramString = hash.substring(paramIndex + 1);
+      params = Object.fromEntries(new URLSearchParams(paramString));
+    }
+    
+    return { baseRoute, params };
   }
   
   // Loading modal
@@ -120,8 +241,19 @@ class App {
   
   // URL parameter handling
   handleURLParameters() {
-    // Check for shared playlist in URL
-    playlistManager.checkForSharedPlaylist();
+    // Process specific URL parameters first
+    const urlParams = new URLSearchParams(window.location.search);
+    const playlistId = urlParams.get('playlist');
+    
+    if (playlistId) {
+      // Store the playlist ID in local storage and redirect to clean URL
+      localStorage.setItem('pendingPlaylistId', playlistId);
+      // Remove the query parameter
+      window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+    }
+    
+    // Now handle route based on hash
+    this.handleRouteChange();
   }
   
   // Initialize app
@@ -129,7 +261,7 @@ class App {
     console.log('Initializing SunoRank app...');
     this.showLoading('Initializing app...');
     
-    // Handle URL parameters
+    // Handle URL parameters and initial route
     this.handleURLParameters();
   }
 }

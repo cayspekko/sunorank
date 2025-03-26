@@ -147,7 +147,7 @@ class PlaylistManager {
     this.sunoSongs = [];
     this.playlistOriginalName = '';
 
-    // Navigate to create playlist section
+    // Navigate to create playlist section using the hash-based navigation
     app.navigateTo('create-playlist-section');
   }
 
@@ -352,14 +352,14 @@ class PlaylistManager {
       this.playlistDetailName.textContent = playlist.name;
       
       // Generate share link
-      const shareUrl = `${window.location.origin}${window.location.pathname}?playlist=${playlistId}`;
+      const shareUrl = `${window.location.origin}${window.location.pathname}#playlist?id=${playlistId}`;
       this.shareLink.value = shareUrl;
 
       // Load votes and display current ranking
       await this.loadAndDisplayRanking();
 
-      // Navigate to playlist detail section
-      app.navigateTo('playlist-detail-section');
+      // Navigate to playlist detail section with the playlist ID as a parameter
+      app.navigateTo('playlist-detail-section', { id: playlistId });
       
       // Switch to ranking tab by default
       this.switchTab(document.querySelector('.tab-btn[data-tab="ranking"]'));
@@ -477,7 +477,7 @@ class PlaylistManager {
         votingManager.setupVotingItems(this.currentPlaylist);
       } else if (tabName === 'share' && this.currentPlaylist) {
         // Ensure share link is up to date
-        const shareUrl = `${window.location.origin}${window.location.pathname}?playlist=${this.currentPlaylist.id}`;
+        const shareUrl = `${window.location.origin}${window.location.pathname}#playlist?id=${this.currentPlaylist.id}`;
         this.shareLink.value = shareUrl;
       }
     } else {
@@ -538,31 +538,22 @@ class PlaylistManager {
 
   // URL parameter handling for shared playlists
   checkForSharedPlaylist() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const playlistId = urlParams.get('playlist');
-    
-    if (playlistId) {
-      // If user is logged in and verified, view the playlist
-      if (authService.isLoggedIn() && authService.isVerified()) {
-        this.viewPlaylist(playlistId);
-      } else {
-        // Store the playlist ID to view after login/verification
-        localStorage.setItem('pendingPlaylistId', playlistId);
-      }
-    }
+    // This method is now handled by App.handleURLParameters()
+    // We just need to check if there's a pendingPlaylistId in localStorage
+    this.loadPendingPlaylist();
   }
 
   // Check and load pending playlist after login/verification
-  async loadPendingPlaylist() {
+  loadPendingPlaylist() {
     const pendingPlaylistId = localStorage.getItem('pendingPlaylistId');
     
-    if (pendingPlaylistId) {
+    if (pendingPlaylistId && authService.isLoggedIn() && authService.isVerified()) {
+      // Clear the pending playlist ID
       localStorage.removeItem('pendingPlaylistId');
-      await this.viewPlaylist(pendingPlaylistId);
-      return true;
+      
+      // View the playlist
+      this.viewPlaylist(pendingPlaylistId);
     }
-    
-    return false;
   }
 
   // Delete playlist functionality
