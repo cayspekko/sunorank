@@ -28,17 +28,19 @@ class AuthService {
 
   initAuthStateListener() {
     this.auth.onAuthStateChanged(async (user) => {
+      console.log('Auth state changed:', user ? 'User signed in' : 'User signed out');
       this.currentUser = user;
       
       if (user) {
         // User is signed in
-        console.log('User is signed in:', user);
+        console.log('User is signed in:', user.uid);
         this.updateUIForSignedInUser(user);
         
         // Check if user exists in Firestore
         const userProfile = await FirebaseService.getUserProfile(user.uid);
         if (!userProfile) {
           // Create user profile if it doesn't exist
+          console.log('Creating new user profile');
           await FirebaseService.createUserProfile(user.uid, {
             email: user.email,
             displayName: user.displayName,
@@ -46,6 +48,7 @@ class AuthService {
           });
         } else {
           // Check if user is verified
+          console.log('User profile found, verified status:', userProfile.verified);
           this.userVerified = userProfile.verified || false;
         }
 
@@ -53,12 +56,20 @@ class AuthService {
         if (this.userVerified) {
           // If current hash is empty or auth-related, redirect to dashboard
           if (!window.location.hash || window.location.hash === '#' || window.location.hash.startsWith('#auth')) {
+            console.log('Redirecting to dashboard after auth');
             app.navigateTo('dashboard-section');
+            // Ensure playlists are loaded
+            setTimeout(() => {
+              console.log('Loading playlists after auth redirect');
+              playlistManager.loadUserPlaylists();
+            }, 200);
           } else {
             // Otherwise let the router handle the current hash
+            console.log('Handling existing route after auth:', window.location.hash);
             app.handleRouteChange();
           }
         } else {
+          console.log('User not verified, redirecting to verification');
           app.navigateTo('verification-section');
         }
       } else {

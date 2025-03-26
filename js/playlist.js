@@ -41,48 +41,137 @@ class PlaylistManager {
 
   setupEventListeners() {
     // Dashboard
-    this.createPlaylistBtn.addEventListener('click', () => this.showCreatePlaylistForm());
+    if (this.createPlaylistBtn) {
+      this.createPlaylistBtn.addEventListener('click', () => this.showCreatePlaylistForm());
+    }
     
     // Create Playlist
-    this.fetchPlaylistBtn.addEventListener('click', () => this.fetchSunoPlaylist());
-    this.playlistUrlInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        this.fetchSunoPlaylist();
-      }
-    });
+    if (this.fetchPlaylistBtn) {
+      this.fetchPlaylistBtn.addEventListener('click', () => this.fetchSunoPlaylist());
+    }
     
-    // Name editing
-    this.editNameBtn.addEventListener('click', () => this.toggleNameEdit());
+    if (this.savePlaylistBtn) {
+      this.savePlaylistBtn.addEventListener('click', () => this.savePlaylist());
+    }
     
-    this.savePlaylistBtn.addEventListener('click', () => this.savePlaylist());
-    this.cancelCreateBtn.addEventListener('click', () => this.cancelCreatePlaylist());
+    if (this.cancelCreateBtn) {
+      this.cancelCreateBtn.addEventListener('click', () => this.cancelCreatePlaylist());
+    }
+    
+    if (this.editNameBtn) {
+      this.editNameBtn.addEventListener('click', () => this.toggleNameEdit());
+    }
     
     // Playlist Detail
-    this.backToDashboardBtn.addEventListener('click', () => {
-      app.navigateTo('dashboard-section');
-      this.loadUserPlaylists();
-    });
-    this.copyLinkBtn.addEventListener('click', () => this.copyShareLink());
+    if (this.backToDashboardBtn) {
+      this.backToDashboardBtn.addEventListener('click', () => app.navigateTo('dashboard-section'));
+    }
     
-    // Tab switching
+    if (this.copyLinkBtn) {
+      this.copyLinkBtn.addEventListener('click', () => this.copyShareLink());
+    }
+    
+    // Tab navigation
     this.tabButtons.forEach(button => {
       button.addEventListener('click', () => this.switchTab(button));
     });
+    
+    // Login buttons in prompts
+    const playlistLoginBtn = document.getElementById('playlist-login-btn');
+    if (playlistLoginBtn) {
+      playlistLoginBtn.addEventListener('click', () => authService.signInWithGoogle());
+    }
+    
+    const votingLoginBtn = document.getElementById('voting-login-btn');
+    if (votingLoginBtn) {
+      votingLoginBtn.addEventListener('click', () => authService.signInWithGoogle());
+    }
+    
+    // Start vote button
+    const startVoteBtn = document.getElementById('start-vote-btn');
+    if (startVoteBtn) {
+      startVoteBtn.addEventListener('click', () => {
+        if (this.currentPlaylist) {
+          votingManager.startVoting(this.currentPlaylist.id);
+        }
+      });
+    }
+    
+    // Delete playlist button
+    const deletePlaylistBtn = document.getElementById('delete-playlist-btn');
+    if (deletePlaylistBtn) {
+      deletePlaylistBtn.addEventListener('click', () => {
+        if (this.currentPlaylist) {
+          this.confirmDeletePlaylist(this.currentPlaylist);
+        }
+      });
+    }
+    
+    // Edit playlist button
+    const editPlaylistBtn = document.getElementById('edit-playlist-btn');
+    if (editPlaylistBtn) {
+      editPlaylistBtn.addEventListener('click', () => this.editPlaylist());
+    }
+    
+    // Vote Now button - using the correct ID
+    if (this.startVoteBtn) {
+      this.startVoteBtn.addEventListener('click', () => {
+        if (this.currentPlaylist) {
+          votingManager.startVoting(this.currentPlaylist.id);
+        }
+      });
+    }
   }
 
   // Dashboard functionality
   async loadUserPlaylists() {
+    // Debug: Log auth state
+    console.log('Auth state when loading playlists:', authService.isLoggedIn(), authService.getCurrentUser());
+    
     if (!authService.isLoggedIn()) {
-      return;
+      console.log('User is not logged in according to authService.isLoggedIn()');
+      // Try getting the current user directly from Firebase instead
+      const firebaseUser = firebase.auth().currentUser;
+      console.log('Firebase current user:', firebaseUser);
+      
+      if (firebaseUser) {
+        console.log('Firebase reports user is logged in, but authService does not');
+        // Force update the auth service with the current user
+        authService.currentUser = firebaseUser;
+      } else {
+        console.log('User is not logged in according to both authService and Firebase');
+        return;
+      }
     }
 
     try {
       app.showLoading('Loading your playlists...');
 
       const userId = authService.getCurrentUser().uid;
+      console.log('Loading playlists for user ID:', userId);
+      
+      // Query directly from Firestore for debugging
+      console.log('Attempting direct Firestore query...');
+      const db = firebase.firestore();
+      const querySnapshot = await db.collection('playlists')
+        .where('createdBy', '==', userId)
+        .orderBy('createdAt', 'desc')
+        .get();
+      
+      console.log('Firestore query results:', querySnapshot.size, 'playlists found');
+      
+      // Use the regular method
       const playlists = await FirebaseService.getUserPlaylists(userId);
+      console.log('Playlists loaded via service:', playlists);
 
-      this.renderPlaylists(playlists);
+      if (playlists.length === 0) {
+        console.log('No playlists found, checking if there might be an issue with the query');
+        // Display a message if no playlists are found
+        this.noPlaylistsMessage.classList.remove('hidden');
+      } else {
+        console.log('Rendering', playlists.length, 'playlists');
+        this.renderPlaylists(playlists);
+      }
     } catch (error) {
       console.error('Error loading playlists:', error);
       app.showMessage('Error loading playlists. Please try again.');
@@ -92,22 +181,26 @@ class PlaylistManager {
   }
 
   renderPlaylists(playlists) {
+    console.log('Rendering playlists:', playlists);
     this.playlistsContainer.innerHTML = '';
 
-    if (playlists.length === 0) {
+    if (!playlists || playlists.length === 0) {
+      console.log('No playlists to render, showing message');
       this.noPlaylistsMessage.classList.remove('hidden');
       return;
     }
 
+    console.log('Hiding no playlists message');
     this.noPlaylistsMessage.classList.add('hidden');
 
     playlists.forEach(playlist => {
+      console.log('Creating element for playlist:', playlist.id, playlist.name);
       const playlistElement = document.createElement('div');
       playlistElement.className = 'playlist-item';
       playlistElement.innerHTML = `
         <div class="playlist-info">
           <h3>${playlist.name}</h3>
-          <p>${playlist.items.length} songs • ${playlist.voteCount || 0} votes</p>
+          <p>${playlist.items ? playlist.items.length : 0} songs • ${playlist.voteCount || 0} votes</p>
         </div>
         <div class="playlist-actions">
           <button class="view-btn">View</button>
@@ -336,7 +429,7 @@ class PlaylistManager {
   }
 
   // Playlist Detail functionality
-  async viewPlaylist(playlistId) {
+  async viewPlaylist(playlistId, allowPublicAccess = false) {
     try {
       app.showLoading('Loading playlist...');
 
@@ -355,6 +448,9 @@ class PlaylistManager {
       const shareUrl = `${window.location.origin}${window.location.pathname}#playlist?id=${playlistId}`;
       this.shareLink.value = shareUrl;
 
+      // Show owner-only controls if the current user is the owner
+      this.updatePlaylistUIForOwnership();
+
       // Load votes and display current ranking
       await this.loadAndDisplayRanking();
 
@@ -364,13 +460,51 @@ class PlaylistManager {
       // Switch to ranking tab by default
       this.switchTab(document.querySelector('.tab-btn[data-tab="ranking"]'));
       
-      // Setup voting items if we go to vote tab
-      votingManager.setupVotingItems(playlist);
+      // Initialize voting if needed 
+      // No need to immediately set up voting - will be handled when users click vote button
+      // votingManager.setupVotingItems(playlist);
     } catch (error) {
       console.error('Error loading playlist:', error);
       app.showMessage(`Error: ${error.message}`);
     } finally {
       app.hideLoading();
+    }
+  }
+
+  // Check if current user is the playlist owner and update UI accordingly
+  updatePlaylistUIForOwnership() {
+    // Get owner controls
+    const ownerControls = document.getElementById('playlist-owner-controls');
+    const voteControls = document.getElementById('playlist-vote-controls');
+    const loginPrompt = document.getElementById('playlist-login-prompt');
+    
+    if (!ownerControls || !voteControls || !loginPrompt) return;
+    
+    // Check if user is logged in
+    if (!authService.isLoggedIn()) {
+      // Public view - hide owner controls, show login prompt
+      ownerControls.classList.add('hidden');
+      voteControls.classList.add('hidden');
+      loginPrompt.classList.remove('hidden');
+      return;
+    }
+    
+    // User is logged in, hide login prompt
+    loginPrompt.classList.add('hidden');
+    
+    // Show vote controls for logged-in users
+    voteControls.classList.remove('hidden');
+    
+    // Check if current user is the playlist owner
+    const currentUser = authService.getCurrentUser();
+    const isOwner = currentUser && this.currentPlaylist && 
+                   this.currentPlaylist.createdBy === currentUser.uid;
+    
+    // Show/hide owner controls based on ownership
+    if (isOwner) {
+      ownerControls.classList.remove('hidden');
+    } else {
+      ownerControls.classList.add('hidden');
     }
   }
 
@@ -446,42 +580,52 @@ class PlaylistManager {
   }
 
   switchTab(button) {
-    // Check if button exists
-    if (!button) {
-      console.error('Tab button not found');
-      return;
-    }
+    if (!button) return;
     
     // Remove active class from all tab buttons
     this.tabButtons.forEach(btn => {
       btn.classList.remove('active');
     });
     
-    // Hide all tab contents
-    document.querySelectorAll('.tab-content').forEach(content => {
-      content.classList.remove('active');
-    });
-    
-    // Add active class to selected tab
+    // Add active class to clicked button
     button.classList.add('active');
+    
+    // Hide all tab content
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => {
+      content.classList.add('hidden');
+    });
     
     // Show selected tab content
     const tabName = button.getAttribute('data-tab');
     const tabContent = document.getElementById(`${tabName}-tab`);
     
     if (tabContent) {
-      tabContent.classList.add('active');
+      tabContent.classList.remove('hidden');
       
-      // Special handling for tabs
-      if (tabName === 'vote' && this.currentPlaylist) {
-        votingManager.setupVotingItems(this.currentPlaylist);
+      // Perform tab-specific actions
+      if (tabName === 'voting') {
+        // If user is not logged in, show login prompt instead of voting interface
+        const votingInterface = document.getElementById('voting-interface');
+        const loginPrompt = document.getElementById('voting-login-prompt');
+        
+        if (votingInterface && loginPrompt) {
+          if (authService.isLoggedIn()) {
+            votingInterface.classList.remove('hidden');
+            loginPrompt.classList.add('hidden');
+            votingManager.setupVotingItems(this.currentPlaylist);
+          } else {
+            votingInterface.classList.add('hidden');
+            loginPrompt.classList.remove('hidden');
+          }
+        }
       } else if (tabName === 'share' && this.currentPlaylist) {
         // Ensure share link is up to date
         const shareUrl = `${window.location.origin}${window.location.pathname}#playlist?id=${this.currentPlaylist.id}`;
         this.shareLink.value = shareUrl;
       }
     } else {
-      console.error(`Tab content not found for ${tabName}`);
+      console.error(`Tab content not found for tab: ${tabName}`);
     }
   }
 
@@ -556,46 +700,112 @@ class PlaylistManager {
     }
   }
 
+  // Edit playlist functionality
+  editPlaylist(playlist) {
+    if (!authService.isLoggedIn() || !authService.isVerified()) {
+      app.showMessage('You need to be logged in to edit this playlist.');
+      return;
+    }
+    
+    // Check if current user is the owner
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser || playlist.createdBy !== currentUser.uid) {
+      app.showMessage('You are not authorized to edit this playlist.');
+      return;
+    }
+    
+    // Navigate to create playlist section with edit mode
+    // We'll reuse the create playlist interface for editing
+    app.navigateTo('create-playlist-section');
+    
+    // Set form values for editing
+    this.playlistNameInput.value = playlist.name;
+    this.playlistNameDisplay.textContent = playlist.name;
+    this.playlistNameContainer.classList.remove('hidden');
+    this.editNameContainer.classList.remove('hidden');
+    
+    // Set URL if available
+    if (playlist.originalSunoPlaylistId) {
+      this.playlistUrlInput.value = playlist.originalSunoPlaylistId;
+    }
+    
+    // Store items from the playlist
+    this.items = [...playlist.items];
+    
+    // Render items
+    this.renderSunoSongs();
+    
+    // Update save button to indicate editing
+    this.savePlaylistBtn.textContent = 'Update Playlist';
+    this.savePlaylistBtn.dataset.mode = 'edit';
+    this.savePlaylistBtn.dataset.playlistId = playlist.id;
+  }
+
   // Delete playlist functionality
   confirmDeletePlaylist(playlist) {
-    // Create modal for confirmation
-    const modalContent = document.createElement('div');
-    modalContent.className = 'modal-content';
-    modalContent.innerHTML = `
-      <h2>Delete Playlist</h2>
-      <p>Are you sure you want to delete the playlist "${playlist.name}"?</p>
-      <p>This will permanently delete the playlist and all its votes. This action cannot be undone.</p>
-      <div class="modal-actions">
-        <button id="confirm-delete-btn" class="danger-btn">Delete Playlist</button>
+    if (!authService.isLoggedIn() || !authService.isVerified()) {
+      app.showMessage('You need to be logged in to delete this playlist.');
+      return;
+    }
+    
+    // Check if current user is the owner
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser || playlist.createdBy !== currentUser.uid) {
+      app.showMessage('You are not authorized to delete this playlist.');
+      return;
+    }
+    
+    // Create confirmation modal content
+    const confirmContent = document.createElement('div');
+    confirmContent.innerHTML = `
+      <h3>Delete Playlist</h3>
+      <p>Are you sure you want to delete "${playlist.name}"?</p>
+      <p>This action cannot be undone.</p>
+      <div class="modal-buttons">
+        <button id="confirm-delete-btn" class="danger-btn">Delete</button>
         <button id="cancel-delete-btn" class="secondary-btn">Cancel</button>
       </div>
     `;
     
-    // Show modal
-    app.showModal(modalContent);
+    // Show confirmation modal
+    app.showModal(confirmContent);
     
-    // Add event listeners
-    document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
-      try {
+    // Add event listeners to modal buttons
+    const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+    const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+    
+    if (confirmDeleteBtn) {
+      confirmDeleteBtn.addEventListener('click', () => {
+        this.deletePlaylist(playlist.id);
         app.closeModal();
-        app.showLoading('Deleting playlist...');
-        
-        // Delete the playlist
-        await FirebaseService.deletePlaylist(playlist.id);
-        
-        // Refresh the playlists
-        app.showMessage('Playlist deleted successfully');
-        await this.loadUserPlaylists();
-      } catch (error) {
-        console.error('Error deleting playlist:', error);
-        app.showMessage(`Error: ${error.message}`);
-      } finally {
-        app.hideLoading();
-      }
-    });
+      });
+    }
     
-    document.getElementById('cancel-delete-btn').addEventListener('click', () => {
-      app.closeModal();
-    });
+    if (cancelDeleteBtn) {
+      cancelDeleteBtn.addEventListener('click', () => {
+        app.closeModal();
+      });
+    }
+  }
+  
+  async deletePlaylist(playlistId) {
+    try {
+      app.showLoading('Deleting playlist...');
+      
+      const success = await FirebaseService.deletePlaylist(playlistId);
+      
+      if (success) {
+        app.showMessage('Playlist deleted successfully.');
+        app.navigateTo('dashboard-section');
+        this.loadUserPlaylists();
+      } else {
+        app.showMessage('Error deleting playlist. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error deleting playlist:', error);
+      app.showMessage(`Error: ${error.message}`);
+    } finally {
+      app.hideLoading();
+    }
   }
 }

@@ -125,9 +125,26 @@
                         <h2 id="playlist-detail-name"></h2>
                         <p id="playlist-detail-info"></p>
                     </div>
+                    
+                    <!-- Login prompt for public viewers -->
+                    <div id="playlist-login-prompt" class="login-prompt hidden">
+                        <p>Log in to vote on this playlist or create your own!</p>
+                        <button id="playlist-login-btn" class="primary-btn">Login with Google</button>
+                    </div>
+                    
+                    <!-- Owner-only controls -->
+                    <div id="playlist-owner-controls" class="owner-controls hidden">
+                        <button id="edit-playlist-btn" class="secondary-btn">Edit Playlist</button>
+                        <button id="delete-playlist-btn" class="danger-btn">Delete Playlist</button>
+                    </div>
+                    
+                    <!-- Vote controls for logged-in users -->
+                    <div id="playlist-vote-controls" class="vote-controls hidden">
+                        <button id="start-vote-btn" class="primary-btn">Vote Now</button>
+                    </div>
+                    
                     <div class="tabs">
                         <button class="tab-btn active" data-tab="ranking">Current Ranking</button>
-                        <button class="tab-btn" data-tab="vote">Vote</button>
                         <button class="tab-btn" data-tab="share">Share</button>
                     </div>
                     
@@ -137,29 +154,7 @@
                         </div>
                     </div>
                     
-                    <div id="vote-tab" class="tab-content">
-                        <h3>Select your top 3 choices</h3>
-                        <div id="voting-items">
-                            <!-- Items to vote on will be loaded here -->
-                        </div>
-                        <div class="selected-items">
-                            <div id="first-choice" class="choice-slot">
-                                <span>1st Choice</span>
-                                <div class="selection"></div>
-                            </div>
-                            <div id="second-choice" class="choice-slot">
-                                <span>2nd Choice</span>
-                                <div class="selection"></div>
-                            </div>
-                            <div id="third-choice" class="choice-slot">
-                                <span>3rd Choice</span>
-                                <div class="selection"></div>
-                            </div>
-                        </div>
-                        <button id="submit-vote-btn" class="primary-btn">Submit Vote</button>
-                    </div>
-                    
-                    <div id="share-tab" class="tab-content">
+                    <div id="share-tab" class="tab-content hidden">
                         <h3>Share this Playlist</h3>
                         <div class="form-group">
                             <label for="share-link">Share Link:</label>
@@ -172,6 +167,70 @@
                     
                     <div class="buttons-row">
                         <button id="back-to-dashboard-btn" class="secondary-btn">Back to Dashboard</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Voting Section -->
+            <section id="voting-section" class="section hidden">
+                <div class="card">
+                    <div class="section-header">
+                        <h2 id="voting-title">Vote on Playlist</h2>
+                        <button id="back-to-playlist-btn" class="secondary-btn">Back to Playlist</button>
+                    </div>
+                    
+                    <!-- Login prompt for public viewers -->
+                    <div id="voting-login-prompt" class="login-prompt hidden">
+                        <p>You need to be logged in to vote on this playlist.</p>
+                        <button id="voting-login-btn" class="primary-btn">Login with Google</button>
+                    </div>
+                    
+                    <!-- Simple "Choose Three" UI -->
+                    <div id="voting-songs-container" class="songs-container">
+                        <!-- Songs will be dynamically rendered here -->
+                    </div>
+                    
+                    <!-- Legacy elements - hidden but kept for compatibility -->
+                    <div id="matchup-container" class="hidden">
+                        <h3>Which do you prefer?</h3>
+                        <div class="voting-progress-container">
+                            <div class="progress-bar-container">
+                                <div id="voting-progress" class="progress-bar"></div>
+                            </div>
+                            <span id="voting-progress-text">0 of 0 comparisons</span>
+                        </div>
+                        <div class="matchup">
+                            <div class="choice-container">
+                                <div id="choice-a" class="choice-slot"></div>
+                                <button id="choice-a-btn" class="choice-btn primary-btn">Choose This</button>
+                            </div>
+                            <div class="choice-divider">VS</div>
+                            <div class="choice-container">
+                                <div id="choice-b" class="choice-slot"></div>
+                                <button id="choice-b-btn" class="choice-btn primary-btn">Choose This</button>
+                            </div>
+                        </div>
+                        <button id="skip-btn" class="secondary-btn">Skip This Pair</button>
+                    </div>
+                    
+                    <!-- Results container (kept for compatibility) -->
+                    <div id="results-container" class="hidden">
+                        <h3>Your Top Choices</h3>
+                        <div class="results">
+                            <div class="result-item">
+                                <div class="result-rank">1st</div>
+                                <div id="first-choice" class="choice-slot"></div>
+                            </div>
+                            <div class="result-item">
+                                <div class="result-rank">2nd</div>
+                                <div id="second-choice" class="choice-slot"></div>
+                            </div>
+                            <div class="result-item">
+                                <div class="result-rank">3rd</div>
+                                <div id="third-choice" class="choice-slot"></div>
+                            </div>
+                        </div>
+                        <button id="submit-vote-btn" class="primary-btn">Submit Vote</button>
                     </div>
                 </div>
             </section>

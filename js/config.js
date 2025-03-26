@@ -72,11 +72,15 @@ const FirebaseService = {
   // Playlist related functions
   async createPlaylist(playlistData) {
     try {
-      const docRef = await db.collection(COLLECTIONS.PLAYLISTS).add({
+      // Add creation timestamp and set initial vote count
+      const playlist = {
         ...playlistData,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
+        voteCount: 0,
+        public: true // All playlists are public by default for sharing
+      };
+      
+      const docRef = await db.collection(COLLECTIONS.PLAYLISTS).add(playlist);
       return docRef.id;
     } catch (error) {
       console.error('Error creating playlist:', error);
@@ -85,41 +89,18 @@ const FirebaseService = {
   },
 
   async getUserPlaylists(userId) {
-    
     try {
       const snapshot = await db.collection(COLLECTIONS.PLAYLISTS)
         .where('createdBy', '==', userId)
+        .orderBy('createdAt', 'desc')
         .get();
       
-      // Convert to array and sort by creation time
-      const playlists = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      // Update vote counts for each playlist
-      for (const playlist of playlists) {
-        try {
-          // Count the votes for this playlist
-          const votesSnapshot = await db.collection(COLLECTIONS.VOTES)
-            .where('playlistId', '==', playlist.id)
-            .get();
-            
-          // Update the vote count in our returned data
-          playlist.voteCount = votesSnapshot.size;
-        } catch (error) {
-          console.error(`Error getting vote count for playlist ${playlist.id}:`, error);
-          // Don't fail the whole operation if one count fails
-        }
+      if (snapshot.empty) {
+        return [];
       }
       
-      // Sort by most recently created
-      return playlists.sort((a, b) => {
-        // If there's a createdAt field, use it for sorting
-        if (a.createdAt && b.createdAt) {
-          return b.createdAt.seconds - a.createdAt.seconds;
-        }
-        return 0;
+      return snapshot.docs.map(doc => {
+        return { id: doc.id, ...doc.data() };
       });
     } catch (error) {
       console.error('Error getting user playlists:', error);
@@ -128,28 +109,14 @@ const FirebaseService = {
   },
 
   async getPlaylist(playlistId) {
-
     try {
       const docRef = db.collection(COLLECTIONS.PLAYLISTS).doc(playlistId);
       const doc = await docRef.get();
       
       if (doc.exists) {
-        const playlist = { id: doc.id, ...doc.data() };
-        
-        // Get vote count directly instead of calling a non-existent function
-        try {
-          const votesSnapshot = await db.collection(COLLECTIONS.VOTES)
-            .where('playlistId', '==', playlistId)
-            .get();
-          
-          playlist.voteCount = votesSnapshot.size;
-        } catch (error) {
-          console.error(`Error getting vote count for playlist ${playlistId}:`, error);
-          playlist.voteCount = 0; // Default to 0 if there's an error
-        }
-        
-        return playlist;
+        return { id: doc.id, ...doc.data() };
       } else {
+        console.log(`Playlist with ID ${playlistId} not found.`);
         return null;
       }
     } catch (error) {
@@ -158,35 +125,67 @@ const FirebaseService = {
     }
   },
 
+  async updatePlaylist(playlistId, playlistData, userId) {
+    try {
+      // First check if the user is the owner
+      const playlist = await this.getPlaylist(playlistId);
+      
+      if (!playlist) {
+        console.error('Playlist not found');
+        return false;
+      }
+      
+      if (playlist.createdBy !== userId) {
+        console.error('User is not authorized to update this playlist');
+        return false;
+      }
+      
+      // User is the owner, proceed with update
+      await db.collection(COLLECTIONS.PLAYLISTS).doc(playlistId).update({
+        ...playlistData,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating playlist:', error);
+      return false;
+    }
+  },
+
   // Vote related functions
   async submitVote(voteData) {
     try {
-      // Check if user has already voted on this playlist
-      const existingVotes = await db.collection(COLLECTIONS.VOTES)
+      // Check if user has already voted for this playlist
+      const existingVoteQuery = await db.collection(COLLECTIONS.VOTES)
         .where('playlistId', '==', voteData.playlistId)
         .where('userId', '==', voteData.userId)
         .get();
-
-      // If user has already voted, update their vote
-      if (!existingVotes.empty) {
-        const voteDoc = existingVotes.docs[0];
-        await voteDoc.ref.update({
-          ...voteData,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      
+      let voteId;
+      
+      if (!existingVoteQuery.empty) {
+        // User has already voted, update their existing vote
+        voteId = existingVoteQuery.docs[0].id;
+        await db.collection(COLLECTIONS.VOTES).doc(voteId).update({
+          firstChoice: voteData.firstChoice,
+          secondChoice: voteData.secondChoice,
+          thirdChoice: voteData.thirdChoice,
+          timestamp: voteData.timestamp
         });
-        return voteDoc.id;
+      } else {
+        // New vote
+        const docRef = await db.collection(COLLECTIONS.VOTES).add(voteData);
+        voteId = docRef.id;
+        
+        // Update the playlist vote count
+        await this.updatePlaylistVoteCount(voteData.playlistId);
       }
-
-      // Otherwise create a new vote
-      const docRef = await db.collection(COLLECTIONS.VOTES).add({
-        ...voteData,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      return docRef.id;
+      
+      return true;
     } catch (error) {
       console.error('Error submitting vote:', error);
-      return null;
+      return false;
     }
   },
 
@@ -304,22 +303,27 @@ const FirebaseService = {
   // Delete a playlist and all its votes
   async deletePlaylist(playlistId) {
     try {
-      // Use a batch for atomic operations
-      const batch = db.batch();
-      
-      // Delete the playlist document
-      const playlistRef = db.collection(COLLECTIONS.PLAYLISTS).doc(playlistId);
-      batch.delete(playlistRef);
+      // Check if playlist exists
+      const playlist = await this.getPlaylist(playlistId);
+      if (!playlist) {
+        console.error('Playlist not found');
+        return false;
+      }
       
       // Get all votes for this playlist
-      const votesSnapshot = await db.collection(COLLECTIONS.VOTES)
+      const votesQuery = await db.collection(COLLECTIONS.VOTES)
         .where('playlistId', '==', playlistId)
         .get();
       
-      // Add all vote deletions to the batch
-      votesSnapshot.docs.forEach(doc => {
+      // Delete all votes in a batch
+      const batch = db.batch();
+      
+      votesQuery.docs.forEach(doc => {
         batch.delete(doc.ref);
       });
+      
+      // Delete the playlist itself
+      batch.delete(db.collection(COLLECTIONS.PLAYLISTS).doc(playlistId));
       
       // Commit the batch
       await batch.commit();
@@ -327,7 +331,7 @@ const FirebaseService = {
       return true;
     } catch (error) {
       console.error('Error deleting playlist:', error);
-      throw error;
+      return false;
     }
   }
 };

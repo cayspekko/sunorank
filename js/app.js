@@ -51,132 +51,95 @@ class App {
     window.addEventListener('hashchange', () => this.handleRouteChange());
   }
   
-  // Navigation
-  navigateTo(sectionId, params = {}) {
-    // Hide all sections
-    this.sections.forEach(section => {
-      section.classList.add('hidden');
-    });
+  // Route to the appropriate section based on URL hash
+  handleRouteChange() {
+    const hash = window.location.hash.substring(1);
+    console.log('Handling route change. Current hash:', hash);
     
-    // Show target section
-    const targetSection = document.getElementById(sectionId);
-    if (targetSection) {
-      targetSection.classList.remove('hidden');
-      
-      // Update URL hash based on section
-      this.updateUrlForSection(sectionId, params);
-      
-      // Perform section-specific actions
-      if (sectionId === 'dashboard-section' && authService.isLoggedIn()) {
-        // Load playlists when navigating to dashboard
-        playlistManager.loadUserPlaylists();
+    // Parse the route and parameters
+    const [baseRoute, queryString] = hash.split('?');
+    const params = {};
+    
+    if (queryString) {
+      queryString.split('&').forEach(param => {
+        const [key, value] = param.split('=');
+        params[key] = decodeURIComponent(value);
+      });
+    }
+    
+    // Handle special routes
+    if (baseRoute === 'playlist' && params.id) {
+      // Route to playlist detail
+      console.log('Routing to playlist detail:', params.id);
+      playlistManager.viewPlaylist(params.id, true); // Allow public access
+      return;
+    }
+    
+    if (baseRoute === 'vote' && params.id) {
+      // Route to voting
+      console.log('Routing to voting:', params.id);
+      votingManager.startVoting(params.id, true); // Allow public access (viewing only)
+      return;
+    }
+    
+    // Default routes
+    const sectionId = this.routes[baseRoute] || this.routes[''];
+    console.log('Section ID from route:', sectionId);
+    
+    // Check authentication requirements for protected routes
+    if (['dashboard-section', 'create-playlist-section'].includes(sectionId)) {
+      // These routes require authentication
+      if (!authService.isLoggedIn()) {
+        console.log('Protected route requires login, redirecting to auth');
+        this.navigateTo('auth-section');
+        return;
       }
+    }
+    
+    this.navigateTo(sectionId, params);
+    
+    // If we navigated to dashboard, make sure we load the playlists
+    if (sectionId === 'dashboard-section') {
+      console.log('Loading playlists for dashboard');
+      setTimeout(() => playlistManager.loadUserPlaylists(), 100);
     }
   }
   
-  // Update URL hash based on section
-  updateUrlForSection(sectionId, params = {}) {
-    // Find the route key for this section
-    let routeKey = '';
+  // Navigate to a section and update the URL
+  navigateTo(sectionId, params = {}) {
+    // Hide all sections first
+    document.querySelectorAll('.section').forEach(section => {
+      section.classList.add('hidden');
+    });
+    
+    // Show the target section
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+      targetSection.classList.remove('hidden');
+    }
+    
+    // Update URL based on section
+    let route = '';
     for (const [key, value] of Object.entries(this.routes)) {
       if (value === sectionId) {
-        routeKey = key;
+        route = key;
         break;
       }
     }
     
-    if (!routeKey) return; // No matching route found
-    
-    // Remove the leading '#' if it exists
-    routeKey = routeKey.replace(/^#/, '');
-    
-    // Build URL parameters
-    let paramString = '';
-    if (Object.keys(params).length > 0) {
-      paramString = '?' + new URLSearchParams(params).toString();
-    }
-    
-    // Update hash without triggering navigation
-    const newHash = routeKey ? `#${routeKey}${paramString}` : '';
-    if (window.location.hash !== newHash) {
-      history.pushState(null, '', newHash);
-    }
-  }
-  
-  // Handle route changes (both manual and hash changes)
-  handleRouteChange() {
-    // Extract base route and parameters
-    const { baseRoute, params } = this.parseCurrentRoute();
-    
-    // Get corresponding section ID
-    const sectionId = this.routes[baseRoute] || this.routes[''];
-    
-    // Check authentication requirements for protected routes
-    if (['dashboard-section', 'create-playlist-section', 'playlist-detail-section', 'voting-section'].includes(sectionId)) {
-      if (!authService.isLoggedIn()) {
-        this.navigateTo('auth-section');
-        return;
-      }
-      
-      if (!authService.isVerified() && sectionId !== 'verification-section') {
-        this.navigateTo('verification-section');
-        return;
-      }
-    }
-    
-    // Handle specific route parameters
+    // Special case for playlist detail and voting
     if (sectionId === 'playlist-detail-section' && params.id) {
-      // Show specific playlist
-      playlistManager.viewPlaylist(params.id);
-      return; // viewPlaylist handles section display
-    }
-    
-    if (sectionId === 'voting-section' && params.id) {
-      // Show voting for specific playlist
-      votingManager.startVoting(params.id);
-      return; // startVoting handles section display
-    }
-    
-    // Navigate to the section without updating URL (already handled)
-    this.showSection(sectionId);
-  }
-  
-  // Show section without updating URL (internal use)
-  showSection(sectionId) {
-    // Hide all sections
-    this.sections.forEach(section => {
-      section.classList.add('hidden');
-    });
-    
-    // Show target section
-    const targetSection = document.getElementById(sectionId);
-    if (targetSection) {
-      targetSection.classList.remove('hidden');
-      
-      // Perform section-specific actions
-      if (sectionId === 'dashboard-section' && authService.isLoggedIn()) {
-        // Load playlists when navigating to dashboard
-        playlistManager.loadUserPlaylists();
-      }
+      this.updateUrl(`playlist?id=${params.id}`);
+    } else if (sectionId === 'voting-section' && params.id) {
+      this.updateUrl(`vote?id=${params.id}`);
+    } else {
+      this.updateUrl(route);
     }
   }
   
-  // Parse current route from URL hash
-  parseCurrentRoute() {
-    let hash = window.location.hash || '';
-    let params = {};
-    
-    // Extract base route and parameters
-    const paramIndex = hash.indexOf('?');
-    let baseRoute = hash;
-    
-    if (paramIndex > -1) {
-      baseRoute = hash.substring(0, paramIndex);
-      const paramString = hash.substring(paramIndex + 1);
-      params = Object.fromEntries(new URLSearchParams(paramString));
-    }
-    
-    return { baseRoute, params };
+  // Update the URL without triggering a page reload
+  updateUrl(route) {
+    window.history.pushState(null, null, `#${route}`);
   }
   
   // Loading modal
@@ -271,7 +234,7 @@ const app = new App();
 const authService = new AuthService();
 const verificationService = new VerificationService();
 const playlistManager = new PlaylistManager();
-const votingManager = new VotingManager();
+// votingManager is initialized in voting.js
 
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
