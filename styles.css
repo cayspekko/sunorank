@@ -612,7 +612,7 @@ input[type="text"]:focus {
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 1000;
+    z-index: 1001;
     opacity: 1;
     transition: opacity 0.3s ease;
 }
@@ -716,130 +716,124 @@ input[type="text"]:focus {
 }
 
 /* Testing Environment Styles */
-.testing-panel {
+.toggle-panel-btn {
   position: fixed;
   bottom: 20px;
   right: 20px;
+  background-color: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 15px;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+}
+
+.toggle-panel-btn:hover {
+  background-color: #1a252f;
+}
+
+.testing-panel {
+  position: fixed;
+  bottom: 70px;
+  right: 20px;
+  width: 250px;
   background-color: white;
-  border: 1px solid var(--border-color);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   padding: 15px;
-  width: 300px;
-  z-index: 900;
-  transition: var(--transition);
+  z-index: 1000;
+  transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
 .testing-panel.hidden {
-  transform: translateY(120%);
+  transform: translateY(20px);
   opacity: 0;
+  pointer-events: none;
 }
 
 .testing-panel h3 {
   margin-top: 0;
   margin-bottom: 15px;
-  color: var(--primary-color);
-  font-size: 16px;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 5px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 8px;
+  color: #2c3e50;
 }
 
 .testing-panel h4 {
-  margin: 15px 0 10px;
+  margin: 12px 0 8px;
   font-size: 14px;
-  color: var(--dark-color);
+  color: #34495e;
 }
 
 .test-toggle {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   margin-bottom: 10px;
 }
 
 .test-toggle label {
-  font-weight: 500;
-  color: var(--dark-color);
+  margin-right: 10px;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.test-toggle input[type="checkbox"] {
+  transform: scale(1.2);
 }
 
 .test-accounts, .test-data-actions {
-  margin-top: 15px;
+  margin-top: 12px;
 }
 
 .test-buttons {
   display: flex;
-  gap: 5px;
-  margin-top: 5px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .test-account-btn {
-  background-color: var(--light-color);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 5px 10px;
+  padding: 6px 10px;
   font-size: 12px;
-  cursor: pointer;
-  flex: 1;
-  transition: var(--transition);
-}
-
-.test-account-btn:hover {
-  background-color: var(--primary-light-color);
-  border-color: var(--primary-color);
-}
-
-#test-admin-btn {
-  background-color: #e8f5e9;
-  border-color: #4caf50;
-  color: #1b5e20;
-}
-
-#test-admin-btn:hover {
-  background-color: #c8e6c9;
-}
-
-#test-unverified-btn {
-  background-color: #fff8e1;
-  border-color: #ffc107;
-  color: #ff8f00;
-}
-
-#test-unverified-btn:hover {
-  background-color: #ffecb3;
-}
-
-.test-data-actions button {
-  width: 100%;
-  margin: 5px 0;
-  padding: 8px;
-  background-color: var(--light-color);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.test-data-actions button:hover {
-  background-color: var(--primary-light-color);
-}
-
-.toggle-panel-btn {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background-color: var(--primary-color);
+  background-color: #3498db;
   color: white;
   border: none;
   border-radius: 4px;
-  padding: 8px 15px;
   cursor: pointer;
-  font-weight: 500;
-  z-index: 899;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  flex: 1;
+  min-width: 60px;
+  transition: background-color 0.2s;
 }
 
-.toggle-panel-btn:hover {
-  background-color: var(--primary-dark-color);
+.test-account-btn:hover {
+  background-color: #2980b9;
+}
+
+#generate-test-data-btn, #clear-test-data-btn {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 8px;
+  background-color: #2ecc71;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.2s;
+}
+
+#clear-test-data-btn {
+  background-color: #e74c3c;
+}
+
+#generate-test-data-btn:hover {
+  background-color: #27ae60;
+}
+
+#clear-test-data-btn:hover {
+  background-color: #c0392b;
 }
 
 /* Responsive Styles */
