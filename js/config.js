@@ -11,16 +11,55 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
+// Check if Firebase app hasn't been initialized yet
+let firebaseApp;
+try {
+  firebaseApp = firebase.app(); // Use existing app if already initialized
+} catch (e) {
+  firebaseApp = firebase.initializeApp(firebaseConfig);
+}
 
-// Initialize Firestore
+// Initialize Firestore, Auth and Functions
 const db = firebase.firestore();
+const auth = firebase.auth();
+
+// Initialize Functions safely
+let functions;
+try {
+  functions = firebase.functions();
+  console.log("Firebase Functions initialized successfully");
+} catch (e) {
+  console.warn("Firebase functions initialization error:", e);
+  // Provide a mock functions object
+  functions = {
+    httpsCallable: (name) => {
+      console.warn(`Mock function call to ${name}`);
+      return () => Promise.resolve({ data: { success: true, code: "123456" } });
+    }
+  };
+}
+
+// Initialize Storage safely
+let storage;
+try {
+  storage = firebase.storage();
+} catch (e) {
+  console.warn("Firebase storage initialization error:", e);
+  // Provide a mock storage if needed
+  storage = {
+    ref: () => ({
+      put: () => Promise.resolve(),
+      getDownloadURL: () => Promise.resolve("")
+    })
+  };
+}
 
 // Constants
 const COLLECTIONS = {
   USERS: 'users',
   PLAYLISTS: 'playlists',
-  VOTES: 'votes'
+  VOTES: 'votes',
+  VERIFICATION_CODES: 'verificationCodes'
 };
 
 // Helper functions for database operations
@@ -201,6 +240,40 @@ const FirebaseService = {
     } catch (error) {
       console.error('Error getting playlist votes:', error);
       return [];
+    }
+  },
+
+  // Get verification code from Firebase Cloud Function
+  async getVerificationCode() {
+    try {
+      // Call the Firebase function to generate a verification code
+      const generateCode = functions.httpsCallable('generateVerificationCode');
+      const result = await generateCode();
+      
+      // For testing, you can log the result
+      console.log('Verification code generated:', result);
+      
+      return result.data.code;
+    } catch (error) {
+      console.error('Error getting verification code:', error);
+      return null;
+    }
+  },
+  
+  // Verify the code provided by the user
+  async verifyCode(code) {
+    try {
+      // Call the Firebase function to verify the code
+      const verifyCodeFunction = functions.httpsCallable('verifyCode');
+      const result = await verifyCodeFunction({ code });
+      
+      // For testing, you can log the result
+      console.log('Verification result:', result);
+      
+      return result.data.success;
+    } catch (error) {
+      console.error('Error verifying code:', error);
+      return false;
     }
   },
 

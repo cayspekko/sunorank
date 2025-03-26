@@ -311,6 +311,44 @@ class VotingManager {
     }
     
     try {
+      // First, get a verification code from the server
+      app.showLoading('Generating verification code...');
+      
+      // Call the Cloud Function directly
+      const generateCode = firebase.functions().httpsCallable('generateVerificationCode');
+      const codeResult = await generateCode();
+      const verificationCode = codeResult.data.code;
+      
+      if (!verificationCode) {
+        app.hideLoading();
+        app.showMessage('Failed to generate verification code. Please try again.');
+        return;
+      }
+      
+      // Show verification dialog
+      const userCode = await this.showVerificationDialog(verificationCode);
+      
+      if (!userCode) {
+        app.hideLoading();
+        app.showMessage('Verification canceled.');
+        return;
+      }
+      
+      // Verify the code entered by the user
+      app.showLoading('Verifying code...');
+      
+      // Call the Cloud Function directly
+      const verifyCodeFunction = firebase.functions().httpsCallable('verifyCode');
+      const verifyResult = await verifyCodeFunction({ code: userCode });
+      const isVerified = verifyResult.data.success;
+      
+      if (!isVerified) {
+        app.hideLoading();
+        app.showMessage('Invalid verification code. Please try again.');
+        return;
+      }
+      
+      // Code is verified, proceed with vote submission
       app.showLoading('Submitting your vote...');
       
       const currentUser = authService.getCurrentUser();
@@ -324,7 +362,8 @@ class VotingManager {
         firstChoice: this.selections.first.id,
         secondChoice: this.selections.second.id,
         thirdChoice: this.selections.third.id,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        verified: true // Add verification flag
       };
       
       // Submit the vote
@@ -340,10 +379,77 @@ class VotingManager {
       }
     } catch (error) {
       console.error('Error submitting vote:', error);
-      app.showMessage(`Error: ${error.message}`);
+      app.showMessage('An error occurred while submitting your vote.');
     } finally {
       app.hideLoading();
     }
+  }
+  
+  // Show verification dialog with the generated code
+  async showVerificationDialog(verificationCode) {
+    return new Promise((resolve) => {
+      // Create modal dialog for verification
+      const dialog = document.createElement('div');
+      dialog.className = 'modal-dialog';
+      
+      dialog.innerHTML = `
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5>Verify Your Vote</h5>
+            <span class="close-btn">&times;</span>
+          </div>
+          <div class="modal-body">
+            <p>Please enter the verification code to confirm your vote:</p>
+            <div class="verification-code">${verificationCode}</div>
+            <p>Enter the code below:</p>
+            <input type="text" id="verification-input" class="form-input" maxlength="6" placeholder="Enter code">
+          </div>
+          <div class="modal-footer">
+            <button id="cancel-verification" class="secondary-btn">Cancel</button>
+            <button id="submit-verification" class="primary-btn">Verify</button>
+          </div>
+        </div>
+      `;
+      
+      // Add the dialog to the page
+      document.body.appendChild(dialog);
+      
+      // Focus the input
+      const input = dialog.querySelector('#verification-input');
+      input.focus();
+      
+      // Add event listeners
+      const closeBtn = dialog.querySelector('.close-btn');
+      const cancelBtn = dialog.querySelector('#cancel-verification');
+      const submitBtn = dialog.querySelector('#submit-verification');
+      
+      const closeDialog = () => {
+        document.body.removeChild(dialog);
+        resolve(null);
+      };
+      
+      const submitCode = () => {
+        const code = input.value.trim();
+        if (code) {
+          document.body.removeChild(dialog);
+          resolve(code);
+        } else {
+          input.classList.add('error');
+          setTimeout(() => input.classList.remove('error'), 500);
+        }
+      };
+      
+      closeBtn.addEventListener('click', closeDialog);
+      cancelBtn.addEventListener('click', closeDialog);
+      submitBtn.addEventListener('click', submitCode);
+      
+      // Allow enter key to submit
+      input.addEventListener('keyup', (event) => {
+        if (event.key === 'Enter') {
+          submitCode();
+        }
+      });
+    });
   }
   
   // Utility method to shuffle an array

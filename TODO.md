@@ -68,3 +68,7 @@
 - Add ability to export rankings to other social media platforms
 - Create embeddable widgets for websites and blogs
 - Implement webhooks for third-party notifications
+
+## Other Stuff
+* load and list suno profile info when verified
+* allow return and reverify 

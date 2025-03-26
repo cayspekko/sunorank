@@ -17,11 +17,11 @@ class App {
     // Routing state
     this.routes = {
       '': 'auth-section',
-      '#dashboard': 'dashboard-section',
-      '#create': 'create-playlist-section',
-      '#verification': 'verification-section',
-      '#playlist': 'playlist-detail-section',
-      '#voting': 'voting-section'
+      'dashboard': 'dashboard-section',
+      'create': 'create-playlist-section',
+      'verification': 'verification-section',
+      'playlist': 'playlist-detail-section',
+      'voting': 'voting-section'
     };
     
     // Initialize
@@ -116,6 +116,18 @@ class App {
     const targetSection = document.getElementById(sectionId);
     if (targetSection) {
       targetSection.classList.remove('hidden');
+      
+      // Initialize verification elements if we're navigating to verification section
+      if (sectionId === 'verification-section' && verificationService) {
+        console.log('Initializing verification elements for verification section');
+        verificationService.initializeElements();
+        
+        // If we already have a code from previous generation, display it
+        if (verificationService.currentCode) {
+          console.log('Restoring previously generated code:', verificationService.currentCode);
+          verificationService.displayCode(verificationService.currentCode);
+        }
+      }
     }
     
     // Update URL based on section

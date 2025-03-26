@@ -1,5 +1,15 @@
 class VerificationService {
   constructor() {
+    // DOM Elements - delay initialization until needed to avoid null references
+    this.currentCode = null;
+
+    // Don't initialize event listeners in constructor - do it when needed
+    // This ensures elements are fully loaded before attaching events
+  }
+
+  // Initialize DOM elements - call this method when the section becomes visible
+  initializeElements() {
+    console.log('Initializing verification elements');
     // DOM Elements
     this.generateCodeBtn = document.getElementById('generate-code-btn');
     this.verificationCodeContainer = document.getElementById('verification-code-container');
@@ -10,219 +20,213 @@ class VerificationService {
     this.verifyBtn = document.getElementById('verify-btn');
     this.verificationStatus = document.getElementById('verification-status');
 
-    // Store the generated code
-    this.currentCode = null;
-
-    // Initialize
-    this.setupEventListeners();
-    
-    // Listen for auth state changes instead of checking immediately
-    this.initAuthListener();
-  }
-
-  setupEventListeners() {
-    this.generateCodeBtn.addEventListener('click', () => this.generateVerificationCode());
-    this.verifyBtn.addEventListener('click', () => this.verifySunoAccount());
-  }
-  
-  // Initialize auth state listener to check for codes after auth is ready
-  initAuthListener() {
-    firebase.auth().onAuthStateChanged(user => {
-      if (user) {
-        // User is signed in, now check for existing verification code
-        this.checkExistingVerificationCode();
-      }
+    // Log elements to ensure they're found
+    console.log('Verification elements:', {
+      generateCodeBtn: this.generateCodeBtn,
+      verificationCodeContainer: this.verificationCodeContainer,
+      verificationCode: this.verificationCode,
+      styleInstruction: this.styleInstruction,
+      styleCode: this.styleCode
     });
+
+    // Initialize event listeners only if not already set up
+    if (this.generateCodeBtn && !this.generateCodeBtn._hasClickListener) {
+      this.generateCodeBtn.addEventListener('click', () => this.generateVerificationCode());
+      this.generateCodeBtn._hasClickListener = true;
+    }
+    if (this.verifyBtn && !this.verifyBtn._hasClickListener) {
+      this.verifyBtn.addEventListener('click', () => this.verifySunoAccount());
+      this.verifyBtn._hasClickListener = true;
+    }
+    
+    // Fetch existing verification code for the current user
+    this.fetchExistingVerificationCode();
   }
   
-  // Check if user already has a verification code
-  async checkExistingVerificationCode() {
+  // Fetch the most recent verification code for the current user
+  async fetchExistingVerificationCode() {
     if (!authService.isLoggedIn()) {
+      console.log('User not logged in, cannot fetch verification code');
       return;
     }
     
     try {
       const userId = authService.getCurrentUser().uid;
+      console.log('Fetching verification code for user:', userId);
       
-      // Get user profile from Firestore
-      const userDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
-      const userProfile = userDoc.exists ? userDoc.data() : null;
+      // Query Firestore for the most recent verification code for this user
+      const snapshot = await db.collection('verificationCodes')
+        .where('userId', '==', userId)
+        .where('used', '==', false)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .get();
       
-      if (userProfile && userProfile.verificationCode) {
-        // User already has a verification code, display it
-        this.currentCode = userProfile.verificationCode;
-        this.displayExistingCode(this.currentCode);
-        console.log('Retrieved existing verification code:', this.currentCode);
+      if (!snapshot.empty) {
+        const codeDoc = snapshot.docs[0];
+        const codeData = codeDoc.data();
+        const code = codeData.code;
+        
+        console.log('Found existing verification code:', code);
+        
+        // Check if the code is still valid (not expired)
+        const now = new Date();
+        const expiresAt = codeData.expiresAt.toDate();
+        
+        if (expiresAt > now) {
+          console.log('Code is still valid, displaying it');
+          this.displayCode(code);
+        } else {
+          console.log('Code has expired, not displaying it');
+        }
+      } else {
+        console.log('No existing verification code found for user');
       }
     } catch (error) {
-      console.error('Error checking existing verification code:', error);
+      console.error('Error fetching verification code:', error);
     }
   }
   
-  // Display an existing verification code
-  displayExistingCode(code) {
-    this.verificationCode.textContent = code;
-    this.verificationCodeContainer.classList.remove('hidden');
-    
-    this.styleCode.textContent = code;
-    this.styleInstruction.classList.remove('hidden');
+  setupEventListeners() {
+    // Now handled by initializeElements
+    this.initializeElements();
   }
-
-  // Generate a unique verification code
-  async generateVerificationCode() {
-    // Generate a random 10-character code
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let code = 'SUNORANK_';
-    for (let i = 0; i < 10; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
+  
+  // Display a verification code in the UI
+  displayCode(code) {
+    if (!code) return;
     
+    // Store the code
     this.currentCode = code;
     
+    // Make sure elements are initialized
+    if (!this.verificationCode || !this.verificationCodeContainer) {
+      this.initializeElements();
+    }
+    
     // Display the code
-    this.verificationCode.textContent = code;
-    this.verificationCodeContainer.classList.remove('hidden');
+    if (this.verificationCode) {
+      this.verificationCode.textContent = code;
+      this.verificationCodeContainer.classList.remove('hidden');
+    }
     
     // Display the style instruction
-    this.styleCode.textContent = code;
-    this.styleInstruction.classList.remove('hidden');
-    
-    // Save code to database if user is logged in
-    if (authService.isLoggedIn()) {
-      try {
-        const userId = authService.getCurrentUser().uid;
-        await this.saveVerificationCode(userId, code);
-        console.log('Saved verification code to database:', code);
-      } catch (error) {
-        console.error('Error saving verification code:', error);
-      }
+    if (this.styleCode) {
+      this.styleCode.textContent = code;
+      this.styleInstruction.classList.remove('hidden');
     }
     
-    return code;
+    console.log('Displayed verification code in UI:', code);
   }
   
-  // Save verification code to user's profile
-  async saveVerificationCode(userId, code) {
+  // Generate a verification code using Firebase Cloud Function
+  async generateVerificationCode() {
+    if (!authService.isLoggedIn()) {
+      app.showMessage('You must be logged in to generate a verification code');
+      return;
+    }
+    
     try {
-      await db.collection(COLLECTIONS.USERS).doc(userId).update({
-        verificationCode: code,
-        verificationCodeCreatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      return true;
+      app.showLoading('Generating verification code...');
+      
+      // Call the Cloud Function directly instead of using FirebaseService
+      const generateCode = firebase.functions().httpsCallable('generateVerificationCode');
+      const result = await generateCode();
+      console.log('Verification code from server:', result);
+      
+      const code = result.data.code;
+      if (!code) {
+        app.showMessage('Failed to generate verification code. Please try again.');
+        app.hideLoading();
+        return null;
+      }
+      
+      // Display the code using our displayCode method
+      this.displayCode(code);
+      
+      app.hideLoading();
+      app.showMessage('Verification code generated successfully!');
+      
+      return code;
     } catch (error) {
-      console.error('Error saving verification code:', error);
-      return false;
+      console.error('Error getting verification code from server:', error);
+      app.hideLoading();
+      return null;
     }
   }
-
-  // Verify the Suno account by checking the song style field
+  
+  // Verify the Suno account by checking the verification code
   async verifySunoAccount() {
     if (!this.currentCode) {
-      // Try to check for an existing code first
-      await this.checkExistingVerificationCode();
-      
-      if (!this.currentCode) {
-        this.showVerificationMessage('Please generate a verification code first.', false);
-        return;
-      }
+      app.showMessage('Please generate a verification code first.');
+      return;
     }
     
     const songId = this.songIdInput.value.trim();
     if (!songId) {
-      this.showVerificationMessage('Please enter a Suno song ID.', false);
+      app.showMessage('Please enter a song ID.');
       return;
     }
     
     try {
       app.showLoading('Verifying your Suno account...');
       
-      // Check the Suno song by fetching from the Suno API and verifying the tags contain the code
-      const verified = await this.checkSunoSong(songId, this.currentCode);
+      // Call the Cloud Function directly
+      const verifyCodeFunction = firebase.functions().httpsCallable('verifyCode');
+      const result = await verifyCodeFunction({ code: this.currentCode });
+      const isVerified = result.data.success;
       
-      if (verified) {
-        // Update user verification status in Firebase
-        const success = await authService.setUserVerified();
+      if (isVerified) {
+        this.verificationStatus.textContent = 'Verification successful! You can now create playlists and vote.';
+        this.verificationStatus.className = 'verification-status success';
         
-        if (success) {
-          this.showVerificationMessage('Your Suno account has been verified successfully!', true);
-          
-          // Redirect to dashboard after a short delay
-          setTimeout(() => {
-            // Navigate to dashboard with hash-based navigation
-            app.navigateTo('dashboard-section');
-          }, 2000);
-        } else {
-          this.showVerificationMessage('Verification successful, but there was an error updating your profile. Please try again.', false);
+        // Update the user's profile
+        if (authService.isLoggedIn()) {
+          await this.updateUserVerificationStatus(authService.getCurrentUser().uid);
         }
+        
+        app.showMessage('Your Suno account has been verified!');
+        
+        // Navigate back to dashboard after a short delay to allow the user to see the success message
+        setTimeout(() => {
+          console.log('Verification successful, redirecting to dashboard');
+          app.navigateTo('dashboard-section');
+        }, 2000);
       } else {
-        this.showVerificationMessage('Verification failed. Please make sure you entered the correct song ID and included the verification code in the style field.', false);
+        this.verificationStatus.textContent = 'Verification failed. Please make sure you entered the correct song ID and try again.';
+        this.verificationStatus.className = 'verification-status error';
+        app.showMessage('Verification failed. Please try again.');
       }
     } catch (error) {
-      console.error('Error verifying Suno account:', error);
-      this.showVerificationMessage(`Error: ${error.message}`, false);
+      console.error('Error verifying account:', error);
+      this.verificationStatus.textContent = 'An error occurred during verification. Please try again.';
+      this.verificationStatus.className = 'verification-status error';
+      app.showMessage('Error verifying account. Please try again.');
     } finally {
       app.hideLoading();
     }
   }
-
-  // Check the Suno song by fetching from the Suno API and verifying the tags contain the code
-  async checkSunoSong(songId, code) {
-    if (!songId) {
-      return false;
-    }
-    
+  
+  // Update user's verification status in Firestore
+  async updateUserVerificationStatus(userId) {
     try {
-      // Clean the songId to ensure it's just the UUID
-      const cleanId = songId.trim().replace(/^https:\/\/.*\//, '');
+      await db.collection(COLLECTIONS.USERS).doc(userId).update({
+        isSunoVerified: true,
+        verified: true,
+        verifiedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
       
-      // Construct the Suno API URL
-      const apiUrl = `https://studio-api.prod.suno.com/api/clip/${cleanId}`;
+      // Refresh auth state
+      authService.refreshUserState();
       
-      // Fetch the song data
-      const response = await fetch(apiUrl);
-      
-      // If the request failed, return false
-      if (!response.ok) {
-        console.error('Error fetching Suno song:', response.status, response.statusText);
-        return false;
-      }
-      
-      // Parse the response
-      const songData = await response.json();
-      
-      // Check if metadata and tags exist
-      if (!songData.metadata || !songData.metadata.tags) {
-        console.log('Song metadata or tags missing:', songData);
-        return false;
-      }
-      
-      // Get the tags and check if they contain the verification code
-      const tags = songData.metadata.tags;
-      
-      console.log('Song tags:', tags);
-      console.log('Verification code:', code);
-      
-      // Check if the tags match the verification code (exact match)
-      return tags === code;
+      return true;
     } catch (error) {
-      console.error('Error checking Suno song:', error);
+      console.error('Error updating verification status:', error);
       return false;
     }
-  }
-
-  // Show verification status message
-  showVerificationMessage(message, isSuccess) {
-    this.verificationStatus.textContent = message;
-    this.verificationStatus.className = '';
-    this.verificationStatus.classList.add(isSuccess ? 'success' : 'error');
-  }
-
-  // Reset verification form
-  resetVerification() {
-    this.currentCode = null;
-    this.verificationCodeContainer.classList.add('hidden');
-    this.styleInstruction.classList.add('hidden');
-    this.songIdInput.value = '';
-    this.verificationStatus.textContent = '';
   }
 }
+
+// DO NOT create a new verification service instance here
+// It's already created in app.js
+// This file only defines the class
