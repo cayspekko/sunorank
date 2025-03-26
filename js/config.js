@@ -41,11 +41,6 @@ const FirebaseService = {
   },
 
   async getUserProfile(userId) {
-    // Check if we're in test mode
-    if (window.testingEnvironment && window.testingEnvironment.isTestMode) {
-      return window.testingEnvironment.getUserProfile(userId);
-    }
-    
     try {
       const docRef = db.collection(COLLECTIONS.USERS).doc(userId);
       const doc = await docRef.get();
@@ -90,10 +85,6 @@ const FirebaseService = {
   },
 
   async getUserPlaylists(userId) {
-    // Check if we're in test mode
-    if (window.testingEnvironment && window.testingEnvironment.isTestMode) {
-      return window.testingEnvironment.testPlaylists.filter(p => p.createdBy === userId);
-    }
     
     try {
       const snapshot = await db.collection(COLLECTIONS.PLAYLISTS)
@@ -137,11 +128,7 @@ const FirebaseService = {
   },
 
   async getPlaylist(playlistId) {
-    // Check if we're in test mode
-    if (window.testingEnvironment && window.testingEnvironment.isTestMode) {
-      return window.testingEnvironment.getTestPlaylist(playlistId);
-    }
-    
+
     try {
       const docRef = db.collection(COLLECTIONS.PLAYLISTS).doc(playlistId);
       const doc = await docRef.get();
@@ -204,10 +191,7 @@ const FirebaseService = {
   },
 
   async getPlaylistVotes(playlistId) {
-    // Check if we're in test mode
-    if (window.testingEnvironment && window.testingEnvironment.isTestMode) {
-      return window.testingEnvironment.getTestVotes(playlistId);
-    }
+
     
     try {
       const snapshot = await db.collection(COLLECTIONS.VOTES)
