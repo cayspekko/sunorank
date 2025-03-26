@@ -446,7 +446,13 @@ class PlaylistManager {
   }
 
   switchTab(button) {
-    // Remove active class from all tabs
+    // Check if button exists
+    if (!button) {
+      console.error('Tab button not found');
+      return;
+    }
+    
+    // Remove active class from all tab buttons
     this.tabButtons.forEach(btn => {
       btn.classList.remove('active');
     });
@@ -461,25 +467,73 @@ class PlaylistManager {
     
     // Show selected tab content
     const tabName = button.getAttribute('data-tab');
-    document.getElementById(`${tabName}-tab`).classList.add('active');
+    const tabContent = document.getElementById(`${tabName}-tab`);
     
-    // Special handling for tabs
-    if (tabName === 'vote' && this.currentPlaylist) {
-      votingManager.setupVotingItems(this.currentPlaylist);
+    if (tabContent) {
+      tabContent.classList.add('active');
+      
+      // Special handling for tabs
+      if (tabName === 'vote' && this.currentPlaylist) {
+        votingManager.setupVotingItems(this.currentPlaylist);
+      } else if (tabName === 'share' && this.currentPlaylist) {
+        // Ensure share link is up to date
+        const shareUrl = `${window.location.origin}${window.location.pathname}?playlist=${this.currentPlaylist.id}`;
+        this.shareLink.value = shareUrl;
+      }
+    } else {
+      console.error(`Tab content not found for ${tabName}`);
     }
   }
 
   showShareOptions(playlistId) {
     // Navigate to playlist detail and switch to share tab
     this.viewPlaylist(playlistId).then(() => {
-      this.switchTab(document.querySelector('.tab-btn[data-tab="share"]'));
+      // Give a small delay to ensure the DOM is ready
+      setTimeout(() => {
+        const shareTabBtn = document.querySelector('.tab-btn[data-tab="share"]');
+        if (shareTabBtn) {
+          this.switchTab(shareTabBtn);
+        } else {
+          console.error('Share tab button not found');
+        }
+      }, 100);
+    }).catch(error => {
+      console.error('Error showing share options:', error);
+      app.showMessage('Could not load sharing options. Please try again.');
     });
   }
 
   copyShareLink() {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      // Modern clipboard API
+      navigator.clipboard.writeText(this.shareLink.value)
+        .then(() => {
+          app.showMessage('Share link copied to clipboard!');
+        })
+        .catch(err => {
+          console.error('Could not copy text: ', err);
+          // Fall back to the older method
+          this.fallbackCopyText();
+        });
+    } else {
+      // Fallback for older browsers
+      this.fallbackCopyText();
+    }
+  }
+  
+  fallbackCopyText() {
     this.shareLink.select();
-    document.execCommand('copy');
-    app.showMessage('Share link copied to clipboard!');
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        app.showMessage('Share link copied to clipboard!');
+      } else {
+        app.showMessage('Unable to copy, please copy the link manually.');
+      }
+    } catch (err) {
+      console.error('Fallback: Oops, unable to copy', err);
+      app.showMessage('Unable to copy, please copy the link manually.');
+    }
   }
 
   // URL parameter handling for shared playlists

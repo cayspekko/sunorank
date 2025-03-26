@@ -237,7 +237,7 @@ class TestingEnvironment {
     if (!this.isTestMode || !this.currentTestUser) return;
     
     // Load user-specific test playlists
-    const userPlaylists = this.testPlaylists.filter(p => p.userId === this.currentTestUser.uid);
+    const userPlaylists = this.testPlaylists.filter(p => p.createdBy === this.currentTestUser.uid);
     
     // Render playlists if available, otherwise create sample data
     if (userPlaylists.length > 0) {
@@ -259,7 +259,7 @@ class TestingEnvironment {
     
     // Add the playlists to our test data
     this.testPlaylists = [
-      ...this.testPlaylists.filter(p => p.userId !== this.currentTestUser.uid),
+      ...this.testPlaylists.filter(p => p.createdBy !== this.currentTestUser.uid),
       ...samplePlaylists
     ];
     
@@ -297,15 +297,25 @@ class TestingEnvironment {
         });
       }
       
+      const timestamp = new Date();
+      
       playlists.push({
         id: playlistId,
         name: `${this.currentTestUser.displayName}'s ${genre} Playlist ${i}`,
         description: `A test playlist for ${genre} music`,
-        userId: this.currentTestUser.uid,
+        createdBy: this.currentTestUser.uid,
         userName: this.currentTestUser.displayName,
         items: songs,
         voteCount: Math.floor(Math.random() * 20), // Random vote count
-        createdAt: new Date().toISOString(),
+        createdAt: { 
+          seconds: Math.floor(timestamp.getTime() / 1000),
+          nanoseconds: 0
+        },
+        updatedAt: { 
+          seconds: Math.floor(timestamp.getTime() / 1000),
+          nanoseconds: 0
+        },
+        originalSunoPlaylistId: `test-suno-${i}`,
         votingOpen: true
       });
     }
@@ -319,11 +329,11 @@ class TestingEnvironment {
     // Clear existing votes for this user's playlists
     this.testVotes = this.testVotes.filter(v => {
       const playlist = this.testPlaylists.find(p => p.id === v.playlistId);
-      return !playlist || playlist.userId !== this.currentTestUser.uid;
+      return !playlist || playlist.createdBy !== this.currentTestUser.uid;
     });
     
     // Get this user's playlists
-    const userPlaylists = this.testPlaylists.filter(p => p.userId === this.currentTestUser.uid);
+    const userPlaylists = this.testPlaylists.filter(p => p.createdBy === this.currentTestUser.uid);
     
     // For each playlist, generate some votes
     userPlaylists.forEach(playlist => {
@@ -362,7 +372,7 @@ class TestingEnvironment {
     app.showLoading('Clearing test data...');
     
     // Remove playlists for the current test user
-    this.testPlaylists = this.testPlaylists.filter(p => p.userId !== this.currentTestUser.uid);
+    this.testPlaylists = this.testPlaylists.filter(p => p.createdBy !== this.currentTestUser.uid);
     
     // Remove votes for those playlists
     this.testVotes = this.testVotes.filter(v => {
@@ -380,7 +390,27 @@ class TestingEnvironment {
   // Method to get a playlist for testing
   getTestPlaylist(playlistId) {
     if (!this.isTestMode) return null;
-    return this.testPlaylists.find(p => p.id === playlistId);
+    
+    // Find the test playlist by ID
+    const playlist = this.testPlaylists.find(p => p.id === playlistId);
+    
+    if (!playlist) return null;
+    
+    // Return a properly formatted playlist with all necessary fields
+    return {
+      ...playlist,
+      // Ensure these fields exist with proper formatting
+      createdAt: playlist.createdAt || { 
+        seconds: Math.floor(Date.now() / 1000),
+        nanoseconds: 0
+      },
+      updatedAt: playlist.updatedAt || { 
+        seconds: Math.floor(Date.now() / 1000),
+        nanoseconds: 0
+      },
+      voteCount: playlist.voteCount || 0,
+      votingOpen: typeof playlist.votingOpen === 'boolean' ? playlist.votingOpen : true
+    };
   }
   
   // Method to get votes for a playlist
@@ -390,7 +420,11 @@ class TestingEnvironment {
   }
 }
 
-// Initialize testing environment - wait until DOM is fully loaded
+// Initialize testing environment - make it available globally first
+window.testingEnvironment = null;
+
+// Then set up the environment when DOM is loaded
 window.addEventListener('DOMContentLoaded', () => {
   window.testingEnvironment = new TestingEnvironment();
+  console.log('Testing environment initialized and attached to window object');
 });

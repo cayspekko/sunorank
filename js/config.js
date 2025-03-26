@@ -92,7 +92,7 @@ const FirebaseService = {
   async getUserPlaylists(userId) {
     // Check if we're in test mode
     if (window.testingEnvironment && window.testingEnvironment.isTestMode) {
-      return window.testingEnvironment.testPlaylists.filter(p => p.userId === userId);
+      return window.testingEnvironment.testPlaylists.filter(p => p.createdBy === userId);
     }
     
     try {
@@ -149,9 +149,17 @@ const FirebaseService = {
       if (doc.exists) {
         const playlist = { id: doc.id, ...doc.data() };
         
-        // Get vote count
-        const voteCount = await this.getPlaylistVoteCount(playlistId);
-        playlist.voteCount = voteCount;
+        // Get vote count directly instead of calling a non-existent function
+        try {
+          const votesSnapshot = await db.collection(COLLECTIONS.VOTES)
+            .where('playlistId', '==', playlistId)
+            .get();
+          
+          playlist.voteCount = votesSnapshot.size;
+        } catch (error) {
+          console.error(`Error getting vote count for playlist ${playlistId}:`, error);
+          playlist.voteCount = 0; // Default to 0 if there's an error
+        }
         
         return playlist;
       } else {
