@@ -5,6 +5,7 @@ class AuthService {
     this.googleProvider = new firebase.auth.GoogleAuthProvider();
     this.currentUser = null;
     this.userVerified = false;
+    this.sunoProfile = null;
 
     // DOM Elements
     this.loginBtn = document.getElementById('login-btn');
@@ -14,6 +15,8 @@ class AuthService {
     this.loginContainer = document.getElementById('login-container');
     this.userName = document.getElementById('user-name');
     this.userPhoto = document.getElementById('user-photo');
+    this.sunoProfileLink = document.getElementById('suno-profile-link');
+    this.sunoAvatar = document.getElementById('suno-avatar');
     
     // Initialize
     this.setupEventListeners();
@@ -47,9 +50,16 @@ class AuthService {
             photoURL: user.photoURL
           });
         } else {
-          // Check if user is verified
+          // Check if user is verified and has Suno profile
           console.log('User profile found, verified status:', userProfile.verified);
-          this.userVerified = userProfile.verified || false;
+          this.userVerified = userProfile.verified || userProfile.isSunoVerified || false;
+          
+          // Store Suno profile data if available
+          if (userProfile.sunoProfile) {
+            console.log('Suno profile found:', userProfile.sunoProfile);
+            this.sunoProfile = userProfile.sunoProfile;
+            this.updateSunoProfileUI();
+          }
         }
 
         // Let the router handle navigation based on current URL
@@ -134,7 +144,7 @@ class AuthService {
   isLoggedIn() {
     return !!this.currentUser;
   }
-  
+
   // Helper method to check if user is verified
   isVerified() {
     return this.userVerified;
@@ -171,5 +181,41 @@ class AuthService {
     
     app.navigateTo('dashboard-section');
     playlistManager.loadUserPlaylists();
+  }
+
+  async refreshUserState() {
+    if (!this.isLoggedIn()) return;
+    
+    try {
+      // Fetch the latest user profile from Firestore
+      const userId = this.getCurrentUser().uid;
+      const userProfile = await FirebaseService.getUserProfile(userId);
+      
+      if (userProfile) {
+        console.log('Refreshed user profile:', userProfile);
+        this.userVerified = userProfile.verified || userProfile.isSunoVerified || false;
+        
+        // Update Suno profile if available
+        if (userProfile.sunoProfile) {
+          this.sunoProfile = userProfile.sunoProfile;
+          this.updateSunoProfileUI();
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing user state:', error);
+    }
+  }
+
+  updateSunoProfileUI() {
+    if (this.sunoProfile) {
+      // Set the link to the Suno profile using the handle
+      this.sunoProfileLink.href = `https://suno.com/@${this.sunoProfile.handle}`;
+      // Use the avatar image URL from the profile
+      this.sunoAvatar.src = this.sunoProfile.avatarImageUrl;
+      // Show the Suno profile link and avatar
+      this.sunoProfileLink.classList.remove('hidden');
+    } else {
+      this.sunoProfileLink.classList.add('hidden');
+    }
   }
 }

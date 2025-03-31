@@ -1,6 +1,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const cors = require('cors')({origin: true});
+const axios = require('axios');
 
 admin.initializeApp();
 
@@ -36,9 +37,9 @@ exports.generateVerificationCode = regionalFunctions.https.onCall(async (data, c
   
   const code = `SUNORANK_${generateRandomString(10)}`;
   
-  // Set the expiration time (e.g., 10 minutes from now)
+  // Set the expiration time (e.g., 60 minutes from now)
   const expirationTime = admin.firestore.Timestamp.fromDate(
-    new Date(Date.now() + 10 * 60 * 1000)
+    new Date(Date.now() + 60 * 60 * 1000)
   );
   
   // Store the code in Firestore
@@ -81,12 +82,19 @@ exports.verifyCode = regionalFunctions.https.onCall(async (data, context) => {
   }
   
   const userId = context.auth.uid;
-  const { code } = data;
+  const { code, songId } = data;
   
   if (!code) {
     throw new functions.https.HttpsError(
       'invalid-argument', 
       'The code must be provided.'
+    );
+  }
+  
+  if (!songId) {
+    throw new functions.https.HttpsError(
+      'invalid-argument', 
+      'The song ID must be provided.'
     );
   }
   
@@ -119,8 +127,94 @@ exports.verifyCode = regionalFunctions.https.onCall(async (data, context) => {
     );
   }
   
-  // Mark the code as used
-  await codeDoc.ref.update({ used: true });
+  // Server-side verification with Suno API
+  let sunoProfileData = null;
+  let verified = false;
   
-  return { success: true };
+  try {
+    // Extract just the song UUID from the provided songId
+    // The songId could be:
+    // - Just the UUID (e.g., "a1b2c3d4")
+    // - Full URL (e.g., "https://suno.com/@username/a1b2c3d4")
+    let songUuid = songId;
+    
+    // If it's a URL, extract just the UUID from the end
+    if (songId.includes('/')) {
+      const parts = songId.split('/');
+      songUuid = parts[parts.length - 1];
+    }
+    
+    console.log(`Extracted song UUID: ${songUuid}`);
+    
+    if (!songUuid) {
+      throw new Error('Could not extract a valid song ID');
+    }
+    
+    // Fetch the song details from Suno API
+    const axios = require('axios');
+    const songResponse = await axios.get(`https://studio-api.prod.suno.com/api/clip/${songUuid}`);
+    
+    if (!songResponse.data) {
+      throw new Error('Song not found on Suno');
+    }
+    
+    // Extract the user handle from the song data
+    const handle = songResponse.data.handle;
+    
+    if (!handle) {
+      throw new Error('Could not determine the Suno user handle from the song');
+    }
+    
+    // Verify the song contains our verification code in the metadata.tags field
+    const tags = songResponse.data.metadata?.tags || '';
+    
+    if (!tags.includes(code)) {
+      console.log(`Verification failed: code ${code} not found in song metadata.tags: ${tags}`);
+      throw new Error('Verification code not found in the song. Please include the verification code in the song tags.');
+    }
+    
+    // Now fetch the user's profile data using the handle we got from the song
+    const profileResponse = await axios.get(
+      `https://studio-api.prod.suno.com/api/profiles/${handle}?clips_sort_by=created_at&playlists_sort_by=created_at`
+    );
+    
+    if (!profileResponse.data) {
+      throw new Error('Could not fetch Suno profile data');
+    }
+    
+    // Extract only the needed fields
+    sunoProfileData = {
+      handle: profileResponse.data.handle,
+      displayName: profileResponse.data.display_name,
+      avatarImageUrl: profileResponse.data.avatar_image_url
+    };
+    
+    // Update user document with Suno profile data
+    await admin.firestore().collection('users').doc(userId).update({
+      sunoProfile: sunoProfileData,
+      isSunoVerified: true,
+      verified: true,
+      verifiedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    console.log(`Updated user ${userId} with Suno profile data for handle ${handle}`);
+    verified = true;
+    
+  } catch (error) {
+    console.error('Error during Suno verification:', error);
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `Verification failed: ${error.message}`
+    );
+  }
+  
+  // Mark the code as used if verification was successful
+  if (verified) {
+    await codeDoc.ref.update({ used: true });
+  }
+  
+  return { 
+    success: verified,
+    sunoProfile: sunoProfileData
+  };
 });

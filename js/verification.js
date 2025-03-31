@@ -2,6 +2,7 @@ class VerificationService {
   constructor() {
     // DOM Elements - delay initialization until needed to avoid null references
     this.currentCode = null;
+    this.generateCodeBtnInitialized = false;
 
     // Don't initialize event listeners in constructor - do it when needed
     // This ensures elements are fully loaded before attaching events
@@ -14,33 +15,43 @@ class VerificationService {
     this.generateCodeBtn = document.getElementById('generate-code-btn');
     this.verificationCodeContainer = document.getElementById('verification-code-container');
     this.verificationCode = document.getElementById('verification-code');
-    this.styleInstruction = document.getElementById('style-instruction');
-    this.styleCode = document.getElementById('style-code');
-    this.songIdInput = document.getElementById('song-id');
-    this.verifyBtn = document.getElementById('verify-btn');
     this.verificationStatus = document.getElementById('verification-status');
-
+    this.stepInstructions = document.getElementById('step-instructions');
+    
+    // Look for the dynamically added elements
+    this.songIdInput = document.getElementById('song-id');
+    this.verifySongBtn = document.getElementById('verify-song-btn'); 
+    
+    // Static event listener - only needs to be set up once
+    if (this.generateCodeBtn && !this.generateCodeBtnInitialized) {
+      this.generateCodeBtn.addEventListener('click', () => this.getVerificationCode());
+      this.generateCodeBtnInitialized = true;
+    }
+    
+    // Dynamic event listener - needs to be set up every time we update the DOM
+    if (this.verifySongBtn) {
+      console.log('Setting up verify song button event listener');
+      this.verifySongBtn.addEventListener('click', () => this.verifySunoAccount());
+    }
+    
     // Log elements to ensure they're found
     console.log('Verification elements:', {
       generateCodeBtn: this.generateCodeBtn,
       verificationCodeContainer: this.verificationCodeContainer,
       verificationCode: this.verificationCode,
-      styleInstruction: this.styleInstruction,
-      styleCode: this.styleCode
+      songIdInput: this.songIdInput,
+      verifySongBtn: this.verifySongBtn
     });
+  }
 
-    // Initialize event listeners only if not already set up
-    if (this.generateCodeBtn && !this.generateCodeBtn._hasClickListener) {
-      this.generateCodeBtn.addEventListener('click', () => this.generateVerificationCode());
-      this.generateCodeBtn._hasClickListener = true;
-    }
-    if (this.verifyBtn && !this.verifyBtn._hasClickListener) {
-      this.verifyBtn.addEventListener('click', () => this.verifySunoAccount());
-      this.verifyBtn._hasClickListener = true;
-    }
+  // Initialize the verification section
+  initialize() {
+    this.initializeElements();
     
-    // Fetch existing verification code for the current user
-    this.fetchExistingVerificationCode();
+    // Fetch existing verification code after elements are initialized
+    if (authService.isLoggedIn()) {
+      this.fetchExistingVerificationCode();
+    }
   }
   
   // Fetch the most recent verification code for the current user
@@ -110,17 +121,35 @@ class VerificationService {
       this.verificationCodeContainer.classList.remove('hidden');
     }
     
-    // Display the style instruction
-    if (this.styleCode) {
-      this.styleCode.textContent = code;
-      this.styleInstruction.classList.remove('hidden');
-    }
+    // Update the step instructions
+    this.stepInstructions.innerHTML = `
+      <h3>Step 2: Create a Suno Song</h3>
+      <p class="mb-3">Create a new song on Suno and add the verification code to the song tags.</p>
+      <p class="mb-3"><strong>Your verification code:</strong> <span class="verification-code">${code}</span></p>
+      <div class="mb-3">
+        <ol class="verification-steps">
+          <li>Go to <a href="https://suno.com/create" target="_blank">Suno Create</a></li>
+          <li>Add the verification code <code>${code}</code> to the tags field</li>
+          <li>Generate your song and copy its URL or ID</li>
+        </ol>
+      </div>
+      <div class="mb-3">
+        <label for="song-id" class="form-label">Suno Song URL or ID:</label>
+        <input type="text" id="song-id" class="form-control" placeholder="Enter the song URL or ID">
+        <small class="form-text text-muted">Example: https://suno.com/@username/a1b2c3d4 or just the song ID (a1b2c3d4)</small>
+      </div>
+      <button id="verify-song-btn" class="btn btn-primary">Verify Song</button>
+      <div id="verification-status" class="verification-status mt-3"></div>
+    `;
+    
+    // Re-initialize elements after updating the HTML
+    this.initializeElements();
     
     console.log('Displayed verification code in UI:', code);
   }
   
   // Generate a verification code using Firebase Cloud Function
-  async generateVerificationCode() {
+  async getVerificationCode() {
     if (!authService.isLoggedIn()) {
       app.showMessage('You must be logged in to generate a verification code');
       return;
@@ -162,7 +191,7 @@ class VerificationService {
       return;
     }
     
-    const songId = this.songIdInput.value.trim();
+    const songId = this.songIdInput ? this.songIdInput.value.trim() : '';
     if (!songId) {
       app.showMessage('Please enter a song ID.');
       return;
@@ -173,16 +202,39 @@ class VerificationService {
       
       // Call the Cloud Function directly
       const verifyCodeFunction = firebase.functions().httpsCallable('verifyCode');
-      const result = await verifyCodeFunction({ code: this.currentCode });
+      const result = await verifyCodeFunction({ 
+        code: this.currentCode,
+        songId: songId // Send the raw songId to the server
+      });
+      
       const isVerified = result.data.success;
+      const sunoProfile = result.data.sunoProfile;
+      
+      console.log('Verification result:', result.data);
       
       if (isVerified) {
-        this.verificationStatus.textContent = 'Verification successful! You can now create playlists and vote.';
-        this.verificationStatus.className = 'verification-status success';
+        // Update verification status display
+        if (this.verificationStatus) {
+          this.verificationStatus.textContent = 'Verification successful! You can now create playlists and vote.';
+          this.verificationStatus.className = 'verification-status success';
+        }
         
-        // Update the user's profile
-        if (authService.isLoggedIn()) {
-          await this.updateUserVerificationStatus(authService.getCurrentUser().uid);
+        // If we got Suno profile data back, display it
+        if (sunoProfile) {
+          console.log('Received Suno profile data:', sunoProfile);
+          
+          // Update the verification status with the Suno profile info
+          if (this.verificationStatus) {
+            this.verificationStatus.textContent = `Verification successful! Connected to Suno profile: ${sunoProfile.displayName || sunoProfile.handle}`;
+          }
+          
+          // Refresh auth state to show Suno avatar in header
+          authService.refreshUserState();
+        } else {
+          // If we didn't get profile data, still update verification status
+          if (authService.isLoggedIn()) {
+            await this.updateUserVerificationStatus(authService.getCurrentUser().uid);
+          }
         }
         
         app.showMessage('Your Suno account has been verified!');
@@ -192,17 +244,29 @@ class VerificationService {
           console.log('Verification successful, redirecting to dashboard');
           app.navigateTo('dashboard-section');
         }, 2000);
+        
       } else {
-        this.verificationStatus.textContent = 'Verification failed. Please make sure you entered the correct song ID and try again.';
-        this.verificationStatus.className = 'verification-status error';
-        app.showMessage('Verification failed. Please try again.');
+        // Handle verification failure
+        if (this.verificationStatus) {
+          this.verificationStatus.textContent = 'Verification failed. Please check the song ID and try again.';
+          this.verificationStatus.className = 'verification-status error';
+        }
+        
+        app.showMessage('Verification failed. Please check that you added the verification code to the song tags.');
       }
+      
+      app.hideLoading();
+      
     } catch (error) {
-      console.error('Error verifying account:', error);
-      this.verificationStatus.textContent = 'An error occurred during verification. Please try again.';
-      this.verificationStatus.className = 'verification-status error';
-      app.showMessage('Error verifying account. Please try again.');
-    } finally {
+      console.error('Error verifying Suno account:', error);
+      
+      // Display error in verification status
+      if (this.verificationStatus) {
+        this.verificationStatus.textContent = `Error: ${error.message || 'Failed to verify account'}`;
+        this.verificationStatus.className = 'verification-status error';
+      }
+      
+      app.showMessage(`Error: ${error.message || 'Failed to verify account'}`);
       app.hideLoading();
     }
   }

@@ -62,6 +62,27 @@ header h1 {
     object-fit: cover;
 }
 
+#suno-profile-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: transform 0.2s ease;
+}
+
+#suno-profile-link:hover {
+    transform: scale(1.1);
+}
+
+#suno-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--secondary-color);
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+}
+
 /* Button Styles */
 button {
     cursor: pointer;

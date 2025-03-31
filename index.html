@@ -22,6 +22,10 @@
             <div id="user-profile" class="hidden">
                 <span id="user-name"></span>
                 <img id="user-photo" src="" alt="Profile Photo">
+                <!-- Suno Profile Link/Avatar (only shown when verified) -->
+                <a id="suno-profile-link" class="hidden" href="#" target="_blank">
+                    <img id="suno-avatar" src="" alt="Suno Avatar" title="View Suno Profile">
+                </a>
                 <button id="logout-btn">Logout</button>
             </div>
             <div id="login-container">
@@ -54,21 +58,12 @@
                             </div>
                         </div>
                         
-                        <div class="step">
+                        <div id="step-instructions" class="step">
                             <h3>Step 2: Create a Suno Song</h3>
-                            <p>Create a song on Suno with the following style:</p>
-                            <div id="style-instruction" class="hidden">
-                                <p>Add this exact text in the style field: <span id="style-code" class="code"></span></p>
-                                <a href="https://suno.com/create" target="_blank" class="btn">Go to Suno</a>
-                            </div>
+                            <p>Generate a verification code first to begin the verification process.</p>
                         </div>
                         
-                        <div class="step">
-                            <h3>Step 3: Verify</h3>
-                            <div class="input-group">
-                                <input type="text" id="song-id" placeholder="Enter your Suno song ID">
-                                <button id="verify-btn">Verify</button>
-                            </div>
+                        <div id="verification-status-container" class="step">
                             <div id="verification-status"></div>
                         </div>
                     </div>

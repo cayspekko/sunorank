@@ -119,14 +119,10 @@ class App {
       
       // Initialize verification elements if we're navigating to verification section
       if (sectionId === 'verification-section' && verificationService) {
-        console.log('Initializing verification elements for verification section');
-        verificationService.initializeElements();
+        console.log('Initializing verification section');
+        verificationService.initialize();
         
-        // If we already have a code from previous generation, display it
-        if (verificationService.currentCode) {
-          console.log('Restoring previously generated code:', verificationService.currentCode);
-          verificationService.displayCode(verificationService.currentCode);
-        }
+        // No need to restore code manually - the initialize method handles this
       }
     }
     
