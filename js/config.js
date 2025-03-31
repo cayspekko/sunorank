@@ -207,9 +207,7 @@ const FirebaseService = {
         // User has already voted, update their existing vote
         voteId = existingVoteQuery.docs[0].id;
         await db.collection(COLLECTIONS.VOTES).doc(voteId).update({
-          firstChoice: voteData.firstChoice,
-          secondChoice: voteData.secondChoice,
-          thirdChoice: voteData.thirdChoice,
+          votes: voteData.votes,
           timestamp: voteData.timestamp
         });
       } else {
@@ -300,32 +298,56 @@ const FirebaseService = {
 
     // Calculate points (3 for 1st choice, 2 for 2nd, 1 for 3rd)
     votes.forEach(vote => {
-      // Extract the key (id) if the vote choice is an object
-      const firstKey = typeof vote.firstChoice === 'object' && vote.firstChoice !== null 
-                      ? vote.firstChoice.id 
-                      : vote.firstChoice;
-      
-      const secondKey = typeof vote.secondChoice === 'object' && vote.secondChoice !== null 
-                       ? vote.secondChoice.id 
-                       : vote.secondChoice;
-      
-      const thirdKey = typeof vote.thirdChoice === 'object' && vote.thirdChoice !== null 
-                      ? vote.thirdChoice.id 
-                      : vote.thirdChoice;
-      
-      if (firstKey && scores[firstKey]) {
-        scores[firstKey].points += 3;
-        scores[firstKey].firstPlace += 1;
-      }
-      
-      if (secondKey && scores[secondKey]) {
-        scores[secondKey].points += 2;
-        scores[secondKey].secondPlace += 1;
-      }
-      
-      if (thirdKey && scores[thirdKey]) {
-        scores[thirdKey].points += 1;
-        scores[thirdKey].thirdPlace += 1;
+      // Check if vote has the new structure (votes array)
+      if (vote.votes && Array.isArray(vote.votes)) {
+        // Process votes array structure
+        vote.votes.forEach(voteItem => {
+          if (!voteItem || !voteItem.songId) return;
+          
+          const key = voteItem.songId;
+          if (!scores[key]) return;
+          
+          // Assign points based on rank
+          if (voteItem.rank === 1) {
+            scores[key].points += 3;
+            scores[key].firstPlace += 1;
+          } else if (voteItem.rank === 2) {
+            scores[key].points += 2;
+            scores[key].secondPlace += 1;
+          } else if (voteItem.rank === 3) {
+            scores[key].points += 1;
+            scores[key].thirdPlace += 1;
+          }
+        });
+      } else {
+        // Legacy vote structure with firstChoice, secondChoice, thirdChoice
+        // Extract the key (id) if the vote choice is an object
+        const firstKey = typeof vote.firstChoice === 'object' && vote.firstChoice !== null 
+                        ? vote.firstChoice.id 
+                        : vote.firstChoice;
+        
+        const secondKey = typeof vote.secondChoice === 'object' && vote.secondChoice !== null 
+                          ? vote.secondChoice.id 
+                          : vote.secondChoice;
+        
+        const thirdKey = typeof vote.thirdChoice === 'object' && vote.thirdChoice !== null 
+                        ? vote.thirdChoice.id 
+                        : vote.thirdChoice;
+        
+        if (firstKey && scores[firstKey]) {
+          scores[firstKey].points += 3;
+          scores[firstKey].firstPlace += 1;
+        }
+        
+        if (secondKey && scores[secondKey]) {
+          scores[secondKey].points += 2;
+          scores[secondKey].secondPlace += 1;
+        }
+        
+        if (thirdKey && scores[thirdKey]) {
+          scores[thirdKey].points += 1;
+          scores[thirdKey].thirdPlace += 1;
+        }
       }
     });
 

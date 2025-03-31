@@ -311,44 +311,7 @@ class VotingManager {
     }
     
     try {
-      // First, get a verification code from the server
-      app.showLoading('Generating verification code...');
-      
-      // Call the Cloud Function directly
-      const generateCode = firebase.functions().httpsCallable('generateVerificationCode');
-      const codeResult = await generateCode();
-      const verificationCode = codeResult.data.code;
-      
-      if (!verificationCode) {
-        app.hideLoading();
-        app.showMessage('Failed to generate verification code. Please try again.');
-        return;
-      }
-      
-      // Show verification dialog
-      const userCode = await this.showVerificationDialog(verificationCode);
-      
-      if (!userCode) {
-        app.hideLoading();
-        app.showMessage('Verification canceled.');
-        return;
-      }
-      
-      // Verify the code entered by the user
-      app.showLoading('Verifying code...');
-      
-      // Call the Cloud Function directly
-      const verifyCodeFunction = firebase.functions().httpsCallable('verifyCode');
-      const verifyResult = await verifyCodeFunction({ code: userCode });
-      const isVerified = verifyResult.data.success;
-      
-      if (!isVerified) {
-        app.hideLoading();
-        app.showMessage('Invalid verification code. Please try again.');
-        return;
-      }
-      
-      // Code is verified, proceed with vote submission
+      // Prepare vote submission
       app.showLoading('Submitting your vote...');
       
       const currentUser = authService.getCurrentUser();
@@ -359,97 +322,44 @@ class VotingManager {
         userId: currentUser.uid,
         displayName: currentUser.displayName || 'Anonymous',
         photoURL: currentUser.photoURL || '',
-        firstChoice: this.selections.first.id,
-        secondChoice: this.selections.second.id,
-        thirdChoice: this.selections.third.id,
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        verified: true // Add verification flag
+        votes: [
+          {
+            songId: this.selections.first.id,
+            rank: 1,
+            songTitle: this.selections.first.title
+          },
+          {
+            songId: this.selections.second.id,
+            rank: 2,
+            songTitle: this.selections.second.title
+          },
+          {
+            songId: this.selections.third.id,
+            rank: 3,
+            songTitle: this.selections.third.title
+          }
+        ]
       };
       
-      // Submit the vote
-      const result = await FirebaseService.submitVote(voteData);
+      // Submit the vote to Firestore
+      await FirebaseService.submitVote(voteData);
       
-      if (result) {
-        app.showMessage('Your vote has been submitted successfully!');
-        
-        // Return to the playlist page
+      // Show success message and redirect back to the playlist page
+      app.hideLoading();
+      app.showMessage('Your vote has been submitted successfully!');
+      
+      // Return directly to the playlist page
+      if (this.currentPlaylist && this.currentPlaylist.id) {
         playlistManager.viewPlaylist(this.currentPlaylist.id);
       } else {
-        app.showMessage('Failed to submit your vote. Please try again.');
+        app.navigateTo('dashboard-section');
       }
     } catch (error) {
       console.error('Error submitting vote:', error);
-      app.showMessage('An error occurred while submitting your vote.');
-    } finally {
       app.hideLoading();
+      app.showMessage(`Error submitting vote: ${error.message}`);
     }
-  }
-  
-  // Show verification dialog with the generated code
-  async showVerificationDialog(verificationCode) {
-    return new Promise((resolve) => {
-      // Create modal dialog for verification
-      const dialog = document.createElement('div');
-      dialog.className = 'modal-dialog';
-      
-      dialog.innerHTML = `
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5>Verify Your Vote</h5>
-            <span class="close-btn">&times;</span>
-          </div>
-          <div class="modal-body">
-            <p>Please enter the verification code to confirm your vote:</p>
-            <div class="verification-code">${verificationCode}</div>
-            <p>Enter the code below:</p>
-            <input type="text" id="verification-input" class="form-input" maxlength="6" placeholder="Enter code">
-          </div>
-          <div class="modal-footer">
-            <button id="cancel-verification" class="secondary-btn">Cancel</button>
-            <button id="submit-verification" class="primary-btn">Verify</button>
-          </div>
-        </div>
-      `;
-      
-      // Add the dialog to the page
-      document.body.appendChild(dialog);
-      
-      // Focus the input
-      const input = dialog.querySelector('#verification-input');
-      input.focus();
-      
-      // Add event listeners
-      const closeBtn = dialog.querySelector('.close-btn');
-      const cancelBtn = dialog.querySelector('#cancel-verification');
-      const submitBtn = dialog.querySelector('#submit-verification');
-      
-      const closeDialog = () => {
-        document.body.removeChild(dialog);
-        resolve(null);
-      };
-      
-      const submitCode = () => {
-        const code = input.value.trim();
-        if (code) {
-          document.body.removeChild(dialog);
-          resolve(code);
-        } else {
-          input.classList.add('error');
-          setTimeout(() => input.classList.remove('error'), 500);
-        }
-      };
-      
-      closeBtn.addEventListener('click', closeDialog);
-      cancelBtn.addEventListener('click', closeDialog);
-      submitBtn.addEventListener('click', submitCode);
-      
-      // Allow enter key to submit
-      input.addEventListener('keyup', (event) => {
-        if (event.key === 'Enter') {
-          submitCode();
-        }
-      });
-    });
   }
   
   // Utility method to shuffle an array
@@ -460,6 +370,64 @@ class VotingManager {
       [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
     }
     return newArray;
+  }
+  
+  // Show the vote success screen
+  showVoteSuccess() {
+    // Navigate to the vote success section
+    app.navigateTo('vote-success-section', { id: this.currentPlaylist.id });
+    
+    // Update the vote results if needed
+    this.displayVoteResults();
+  }
+  
+  // Display vote results on the success page
+  displayVoteResults() {
+    const voteResultsContainer = document.getElementById('vote-results');
+    if (!voteResultsContainer) return;
+    
+    // Clear any existing content
+    voteResultsContainer.innerHTML = '';
+    
+    // Add selected songs in order
+    if (this.selections.first) {
+      this.addVoteResultItem(voteResultsContainer, this.selections.first, '1st');
+    }
+    
+    if (this.selections.second) {
+      this.addVoteResultItem(voteResultsContainer, this.selections.second, '2nd');
+    }
+    
+    if (this.selections.third) {
+      this.addVoteResultItem(voteResultsContainer, this.selections.third, '3rd');
+    }
+    
+    // Set up back to playlist button
+    const backToPlaylistBtn = document.getElementById('back-to-playlist-btn');
+    if (backToPlaylistBtn && this.currentPlaylist) {
+      backToPlaylistBtn.onclick = () => playlistManager.viewPlaylist(this.currentPlaylist.id);
+    }
+  }
+  
+  // Helper method to add a song result item
+  addVoteResultItem(container, song, rank) {
+    const resultItem = document.createElement('div');
+    resultItem.className = 'result-item';
+    
+    resultItem.innerHTML = `
+      <div class="result-rank">${rank}</div>
+      <div class="song-result">
+        <div class="song-thumbnail">
+          <img src="${song.coverImage || 'images/default-thumbnail.jpg'}" alt="${song.title}">
+        </div>
+        <div class="song-info">
+          <h4>${song.title}</h4>
+          <p>${song.artist || 'Unknown Artist'}</p>
+        </div>
+      </div>
+    `;
+    
+    container.appendChild(resultItem);
   }
 }
 

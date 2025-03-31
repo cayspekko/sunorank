@@ -110,7 +110,14 @@ class PlaylistManager {
     // Edit playlist button
     const editPlaylistBtn = document.getElementById('edit-playlist-btn');
     if (editPlaylistBtn) {
-      editPlaylistBtn.addEventListener('click', () => this.editPlaylist());
+      editPlaylistBtn.addEventListener('click', () => {
+        if (this.currentPlaylist) {
+          this.editPlaylist(this.currentPlaylist);
+        } else {
+          console.error('No playlist currently loaded');
+          app.showMessage('Error loading playlist for editing');
+        }
+      });
     }
     
     // Vote Now button - using the correct ID
