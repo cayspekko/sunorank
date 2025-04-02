@@ -108,6 +108,11 @@
                     <div id="items-container" class="suno-songs-container">
                         <!-- Songs will be added here -->
                     </div>
+                    <div class="form-group">
+                        <label for="voting-deadline">Voting Deadline:</label>
+                        <input type="datetime-local" id="voting-deadline" />
+                        <p class="help-text">Leave blank for no deadline.</p>
+                    </div>
                     <div class="buttons-row">
                         <button id="cancel-create-btn" class="secondary-btn">Cancel</button>
                         <button id="save-playlist-btn" class="primary-btn">Save Playlist</button>
@@ -229,6 +234,7 @@
                         </div>
                         <button id="submit-vote-btn" class="primary-btn">Submit Vote</button>
                     </div>
+                    <div id="voting-countdown" class="countdown"></div>
                 </div>
             </section>
 

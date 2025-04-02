@@ -17,6 +17,7 @@ class PlaylistManager {
     this.itemsContainer = document.getElementById('items-container');
     this.savePlaylistBtn = document.getElementById('save-playlist-btn');
     this.cancelCreateBtn = document.getElementById('cancel-create-btn');
+    this.votingDeadlineInput = document.getElementById('voting-deadline');
 
     // DOM Elements - Playlist Detail
     this.playlistDetailName = document.getElementById('playlist-detail-name');
@@ -406,12 +407,16 @@ class PlaylistManager {
       app.showLoading('Creating your playlist...');
 
       const userId = authService.getCurrentUser().uid;
+      const votingDeadline = this.votingDeadlineInput.value
+        ? new Date(this.votingDeadlineInput.value).toISOString()
+        : null;
       const playlistData = {
         name,
         items: this.items,
         createdBy: userId,
         voteCount: 0,
-        originalSunoPlaylistId: this.extractPlaylistId(this.playlistUrlInput.value)
+        originalSunoPlaylistId: this.extractPlaylistId(this.playlistUrlInput.value),
+        votingDeadline,
       };
 
       const playlistId = await FirebaseService.createPlaylist(playlistData);
@@ -470,6 +475,10 @@ class PlaylistManager {
       // Initialize voting if needed 
       // No need to immediately set up voting - will be handled when users click vote button
       // votingManager.setupVotingItems(playlist);
+      if (playlist.votingDeadline) {
+        const deadlineDate = new Date(playlist.votingDeadline);
+        this.playlistDetailInfo.textContent += ` • Voting ends: ${deadlineDate.toLocaleString()}`;
+      }
     } catch (error) {
       console.error('Error loading playlist:', error);
       app.showMessage(`Error: ${error.message}`);

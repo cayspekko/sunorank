@@ -1104,6 +1104,13 @@ input[type="text"]:focus {
   20%, 40%, 60%, 80% { transform: translateX(5px); }
 }
 
+/* Countdown Timer Styles */
+.countdown {
+	font-size: 16px;
+	color: var(--danger-color);
+	margin-bottom: 10px;
+}
+
 /* Responsive Styles */
 @media (max-width: 768px) {
     .app-container {

@@ -80,6 +80,19 @@ class VotingManager {
       
       // Render all songs for the simple "choose three" UI
       this.renderSongsForSelection();
+
+      // Check if voting is still open
+      if (playlist.votingDeadline) {
+        const now = new Date();
+        const deadline = new Date(playlist.votingDeadline);
+        if (now > deadline) {
+          app.showMessage('Voting for this playlist has ended.');
+          return;
+        }
+
+        // Start the countdown timer
+        this.startCountdown(deadline);
+      }
     } catch (error) {
       console.error('Error starting voting:', error);
       app.showMessage(`Error: ${error.message}`);
@@ -139,15 +152,15 @@ class VotingManager {
     `;
     this.songsContainer.appendChild(instructions);
     
-    // Shuffle items for randomized order
-    const shuffledItems = this.shuffleArray([...this.items]);
+    // Use the original items array instead of shuffling to maintain input order
+    const songItems = [...this.items];
     
     // Create song grid
     const songGrid = document.createElement('div');
     songGrid.className = 'song-selection-grid';
     
     // Add each song to the grid
-    shuffledItems.forEach(song => {
+    songItems.forEach(song => {
       const songCard = document.createElement('div');
       songCard.className = 'song-card selectable';
       songCard.dataset.songId = song.id;
@@ -428,6 +441,31 @@ class VotingManager {
     `;
     
     container.appendChild(resultItem);
+  }
+
+  // Start a countdown timer
+  startCountdown(deadline) {
+    const countdownElement = document.getElementById('voting-countdown');
+    const updateCountdown = () => {
+      const now = new Date();
+      const timeLeft = deadline - now;
+
+      if (timeLeft <= 0) {
+        clearInterval(intervalId);
+        countdownElement.textContent = 'Voting has ended.';
+        this.voteButton.disabled = true;
+        return;
+      }
+
+      const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+      const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+      countdownElement.textContent = `Time left: ${hours}h ${minutes}m ${seconds}s`;
+    };
+
+    updateCountdown();
+    const intervalId = setInterval(updateCountdown, 1000);
   }
 }
 

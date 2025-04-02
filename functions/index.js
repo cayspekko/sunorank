@@ -218,3 +218,25 @@ exports.verifyCode = regionalFunctions.https.onCall(async (data, context) => {
     sunoProfile: sunoProfileData
   };
 });
+
+exports.submitVote = regionalFunctions.https.onCall(async (data, context) => {
+  // ...existing code...
+
+  const { playlistId, votes } = data;
+
+  // Fetch the playlist to check the voting deadline
+  const playlistDoc = await admin.firestore().collection('playlists').doc(playlistId).get();
+  if (!playlistDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'Playlist not found.');
+  }
+
+  const playlistData = playlistDoc.data();
+  const now = admin.firestore.Timestamp.now();
+
+  // Check if voting deadline has passed
+  if (playlistData.votingDeadline && playlistData.votingDeadline.toDate() < now.toDate()) {
+    throw new functions.https.HttpsError('failed-precondition', 'Voting for this playlist has ended.');
+  }
+
+  // ...existing code for submitting the vote...
+});

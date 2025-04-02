@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SunoRank - Twitch Overlay</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <style>
+        :root {
+            --primary-color: #4285f4;
+            --secondary-color: #34a853;
+            --danger-color: #ea4335;
+            --gold: #FFD700;
+            --silver: #C0C0C0;
+            --bronze: #CD7F32;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            color: white;
+            background-color: transparent;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .overlay-container {
+            width: 100%;
+            max-width: 600px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        .overlay-title {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .countdown {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 18px;
+            color: var(--danger-color);
+            font-weight: 500;
+        }
+
+        .rankings {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .ranking-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ranking-item.first {
+            border: 2px solid var(--gold);
+        }
+
+        .ranking-item.second {
+            border: 2px solid var(--silver);
+        }
+
+        .ranking-item.third {
+            border: 2px solid var(--bronze);
+        }
+
+        .ranking-position {
+            font-size: 28px;
+            font-weight: 700;
+            margin-right: 15px;
+            width: 40px;
+            text-align: center;
+        }
+
+        .first .ranking-position {
+            color: var(--gold);
+        }
+
+        .second .ranking-position {
+            color: var(--silver);
+        }
+
+        .third .ranking-position {
+            color: var(--bronze);
+        }
+
+        .song-thumbnail {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-right: 15px;
+        }
+
+        .song-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .song-info {
+            flex: 1;
+        }
+
+        .song-title {
+            font-weight: 500;
+            font-size: 18px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .song-author {
+            display: flex;
+            align-items: center;
+            color: #aaa;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .author-avatar {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .score {
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-left: 10px;
+            min-width: 50px;
+            text-align: right;
+            transition: transform 0.3s ease;
+        }
+
+        .score-change {
+            animation: score-glow 1s ease-out;
+        }
+
+        @keyframes score-glow {
+            0% { transform: scale(1); text-shadow: none; }
+            50% { transform: scale(1.5); text-shadow: 0 0 15px rgba(66, 133, 244, 0.8); }
+            100% { transform: scale(1); text-shadow: none; }
+        }
+        
+        .vote-animation {
+            display: none; /* Replacing with new animations */
+        }
+
+        .rank-change {
+            animation: slide-in 0.8s forwards;
+            z-index: 2;
+        }
+
+        @keyframes slide-in {
+            0% { transform: translateX(-50px); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+
+        .placeholder {
+            text-align: center;
+            padding: 30px;
+            color: #aaa;
+            font-style: italic;
+        }
+
+        .controls {
+            margin-top: 20px;
+            text-align: center;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .controls input {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background-color: #222;
+            color: white;
+        }
+
+        .controls button {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            background-color: var(--primary-color);
+            color: white;
+            cursor: pointer;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay-container">
+        <div class="overlay-title">SunoRank Leaderboard</div>
+        <div id="countdown" class="countdown"></div>
+        <div id="rankings" class="rankings">
+            <div class="placeholder">Enter a playlist ID to load rankings</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <input type="text" id="playlist-id" placeholder="Enter Playlist ID">
+        <button id="load-btn">Load Rankings</button>
+        <button id="test-animation-btn">Test Animations</button>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script>
+        class OverlayManager {
+            constructor() {
+                this.rankingsContainer = document.getElementById('rankings');
+                this.countdownElement = document.getElementById('countdown');
+                this.playlistIdInput = document.getElementById('playlist-id');
+                this.loadBtn = document.getElementById('load-btn');
+                this.rankPositions = [];
+                this.playlist = null;
+                this.rankings = [];
+                this.votesUnsubscribe = null;
+                this.countdownInterval = null;
+                
+                this.setupEventListeners();
+                this.checkUrlParams();
+            }
+
+            setupEventListeners() {
+                this.loadBtn.addEventListener('click', () => this.loadPlaylist());
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'c') {
+                        const controls = document.querySelector('.controls');
+                        controls.classList.toggle('hidden');
+                        const testAnimationBtn = document.getElementById('test-animation-btn');
+                        testAnimationBtn.classList.toggle('hidden');
+                    }
+                });
+
+                const testAnimationBtn = document.getElementById('test-animation-btn');
+                testAnimationBtn.addEventListener('click', () => this.testAnimations());
+            }
+
+            checkUrlParams() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const playlistId = urlParams.get('playlist');
+                
+                if (playlistId) {
+                    this.playlistIdInput.value = playlistId;
+                    this.loadPlaylist();
+                }
+            }
+
+            async loadPlaylist() {
+                const playlistId = this.playlistIdInput.value.trim();
+                if (!playlistId) {
+                    this.showPlaceholder('Please enter a playlist ID');
+                    return;
+                }
+                
+                try {
+                    const playlist = await FirebaseService.getPlaylist(playlistId);
+                    this.cleanupListeners();
+                    this.rankings = [];
+                    
+                    if (!playlist) {
+                        this.showPlaceholder('Playlist not found');
+                        return;
+                    }
+                    
+                    this.playlist = playlist;
+                    const url = new URL(window.location);
+                    url.searchParams.set('playlist', playlistId);
+                    window.history.pushState({}, '', url);
+                    
+                    if (playlist.votingDeadline) {
+                        this.startCountdown(new Date(playlist.votingDeadline));
+                    } else {
+                        this.countdownElement.textContent = '';
+                    }
+                    
+                    document.querySelector('.overlay-title').textContent = `${playlist.name} - Top Rankings`;
+                    this.setupVotesListener(playlistId);
+                } catch (error) {
+                    console.error('Error loading playlist:', error);
+                    this.showPlaceholder('Error loading playlist');
+                }
+            }
+
+            setupVotesListener(playlistId) {
+                console.log('Setting up votes listener for playlist:', playlistId);
+                const items = this.playlist.items;
+                let previousRankings = [];
+                
+                this.votesUnsubscribe = db.collection('votes')
+                    .where('playlistId', '==', playlistId)
+                    .onSnapshot((snapshot) => {
+                        const votes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        const newRankings = FirebaseService.calculateRankings(items, votes).slice(0, 3);
+                        const isUpdate = previousRankings.length > 0;
+                        const changedPositions = [];
+                        
+                        if (isUpdate) {
+                            newRankings.forEach((newRank, index) => {
+                                const newItemId = newRank.item;
+                                const oldIndex = previousRankings.findIndex(oldRank => 
+                                    oldRank.item === newItemId
+                                );
+                                if (oldIndex !== index || 
+                                    (oldIndex !== -1 && previousRankings[oldIndex].points !== newRank.points) ||
+                                    oldIndex === -1) {
+                                    console.log('Change detected:', {
+                                        item: newItemId,
+                                        oldIndex,
+                                        newIndex: index,
+                                        oldPoints: oldIndex !== -1 ? previousRankings[oldIndex].points : 0,
+                                        newPoints: newRank.points
+                                    });
+                                    changedPositions.push(index);
+                                }
+                            });
+                        } else {
+                            for (let i = 0; i < newRankings.length; i++) {
+                                changedPositions.push(i);
+                            }
+                        }
+                        
+                        previousRankings = JSON.parse(JSON.stringify(newRankings));
+                        this.rankings = newRankings;
+                        this.displayRankings(changedPositions);
+                    }, (error) => {
+                        console.error('Error listening for votes:', error);
+                    });
+            }
+
+            displayRankings(changedPositions = []) {
+                this.rankingsContainer.innerHTML = '';
+                if (this.rankings.length === 0) {
+                    this.showPlaceholder('No votes yet');
+                    return;
+                }
+                
+                this.rankings.forEach((ranking, index) => {
+                    const item = ranking.itemObject;
+                    const rankClass = index === 0 ? 'first' : index === 1 ? 'second' : 'third';
+                    const rankElement = document.createElement('div');
+                    rankElement.className = `ranking-item ${rankClass}`;
+                    
+                    if (changedPositions.includes(index)) {
+                        rankElement.classList.add('rank-change');
+                    }
+                    
+                    if (item && typeof item === 'object') {
+                        rankElement.innerHTML += `
+                            <div class="ranking-position">${index + 1}</div>
+                            <div class="song-thumbnail">
+                                <img src="${item.coverImage || 'assets/default-cover.png'}" alt="${item.title} cover">
+                            </div>
+                            <div class="song-info">
+                                <div class="song-title">${item.title}</div>
+                                <div class="song-author">
+                                    <img src="${item.authorAvatar || 'assets/default-avatar.png'}" alt="${item.author}" class="author-avatar">
+                                    <span>${item.author}</span>
+                                </div>
+                            </div>
+                            <div class="score">${ranking.points} pts</div>
+                        `;
+                    } else {
+                        rankElement.innerHTML += `
+                            <div class="ranking-position">${index + 1}</div>
+                            <div class="song-info">
+                                <div class="song-title">${ranking.item}</div>
+                            </div>
+                            <div class="score">${ranking.points} pts</div>
+                        `;
+                    }
+                    
+                    this.rankingsContainer.appendChild(rankElement);
+                    
+                    if (changedPositions.includes(index)) {
+                        const scoreElement = rankElement.querySelector('.score');
+                        scoreElement.classList.add('score-change');
+                        setTimeout(() => {
+                            scoreElement.classList.remove('score-change');
+                        }, 1000);
+                    }
+                });
+                
+                this.rankPositions = Array.from(document.querySelectorAll('.ranking-item'));
+            }
+
+            startCountdown(deadline) {
+                if (this.countdownInterval) {
+                    clearInterval(this.countdownInterval);
+                }
+                
+                const updateCountdown = () => {
+                    const now = new Date();
+                    const timeLeft = deadline - now;
+                    
+                    if (timeLeft <= 0) {
+                        clearInterval(this.countdownInterval);
+                        this.countdownElement.textContent = "Voting has ended!";
+                        return;
+                    }
+                    
+                    const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                    
+                    let countdownText = "Voting ends in: ";
+                    if (days > 0) {
+                        countdownText += `${days}d `;
+                    }
+                    countdownText += `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+                    
+                    this.countdownElement.textContent = countdownText;
+                };
+                
+                updateCountdown();
+                this.countdownInterval = setInterval(updateCountdown, 1000);
+            }
+
+            showPlaceholder(message) {
+                this.rankingsContainer.innerHTML = `<div class="placeholder">${message}</div>`;
+            }
+
+            cleanupListeners() {
+                if (this.votesUnsubscribe) {
+                    this.votesUnsubscribe();
+                    this.votesUnsubscribe = null;
+                }
+                if (this.countdownInterval) {
+                    clearInterval(this.countdownInterval);
+                    this.countdownInterval = null;
+                }
+            }
+
+            testAnimations() {
+                if (!this.rankings || this.rankings.length === 0) {
+                    alert('Please load a playlist first');
+                    return;
+                }
+                
+                const changedPositions = [];
+                const randomIndex = Math.floor(Math.random() * this.rankings.length);
+                changedPositions.push(randomIndex);
+                
+                console.log(`Simulating change for position ${randomIndex + 1}`);
+                this.displayRankings(changedPositions);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const overlay = new OverlayManager();
+            const urlParams = new URLSearchParams(window.location.search);
+            const playlistId = urlParams.get('playlist');
+            
+            if (playlistId) {
+                document.getElementById('playlist-id').value = playlistId;
+                overlay.loadPlaylist();
+            }
+        });
+    </script>
+</body>
+</html>
