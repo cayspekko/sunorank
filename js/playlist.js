@@ -404,32 +404,62 @@ class PlaylistManager {
     }
 
     try {
-      app.showLoading('Creating your playlist...');
+      // Check if we're in edit mode
+      const isEditMode = this.savePlaylistBtn.dataset.mode === 'edit';
+      const existingPlaylistId = this.savePlaylistBtn.dataset.playlistId;
+      
+      app.showLoading(isEditMode ? 'Updating your playlist...' : 'Creating your playlist...');
 
       const userId = authService.getCurrentUser().uid;
       const votingDeadline = this.votingDeadlineInput.value
         ? new Date(this.votingDeadlineInput.value).toISOString()
         : null;
+
+      // Get the ranking type
+      const rankingTypeInputs = document.getElementsByName('ranking-type');
+      let rankingType = 'ranked-choice'; // Default value
+      
+      for (const input of rankingTypeInputs) {
+        if (input.checked) {
+          rankingType = input.value;
+          break;
+        }
+      }
+
       const playlistData = {
         name,
         items: this.items,
         createdBy: userId,
-        voteCount: 0,
         originalSunoPlaylistId: this.extractPlaylistId(this.playlistUrlInput.value),
         votingDeadline,
+        rankingType: rankingType
       };
 
-      const playlistId = await FirebaseService.createPlaylist(playlistData);
+      let success = false;
+      let playlistId;
 
-      if (playlistId) {
-        app.showMessage('Playlist created successfully!');
+      if (isEditMode && existingPlaylistId) {
+        // Update existing playlist
+        console.log('Updating existing playlist:', existingPlaylistId);
+        success = await FirebaseService.updatePlaylist(existingPlaylistId, playlistData, userId);
+        playlistId = existingPlaylistId;
+      } else {
+        // Create new playlist
+        console.log('Creating new playlist');
+        playlistData.voteCount = 0; // Only set for new playlists
+        playlistId = await FirebaseService.createPlaylist(playlistData);
+        success = !!playlistId;
+      }
+
+      if (success) {
+        app.showMessage(isEditMode ? 'Playlist updated successfully!' : 'Playlist created successfully!');
         app.navigateTo('dashboard-section');
         this.loadUserPlaylists();
       } else {
-        app.showMessage('Error creating playlist. Please try again.');
+        app.showMessage(isEditMode ? 'Error updating playlist. Please try again.' : 'Error creating playlist. Please try again.');
       }
     } catch (error) {
-      console.error('Error creating playlist:', error);
+      console.error(isEditMode ? 'Error updating playlist:' : 'Error creating playlist:', error);
       app.showMessage(`Error: ${error.message}`);
     } finally {
       app.hideLoading();
@@ -545,55 +575,92 @@ class PlaylistManager {
     if (!this.currentPlaylist) return;
 
     const rankings = FirebaseService.calculateRankings(this.currentPlaylist.items, votes);
+    const rankingType = this.currentPlaylist.rankingType || 'ranked-choice';
     
     this.currentRanking.innerHTML = '';
 
     if (votes.length === 0) {
-      this.currentRanking.innerHTML = '<p>No votes yet. Be the first to vote!</p>';
-      return;
+        this.currentRanking.innerHTML = '<p>No votes yet. Be the first to vote!</p>';
+        return;
     }
 
+    // Check if there are any star rating votes
+    const hasStarRatings = votes.some(vote => vote.voteType === 'star-rating');
+
     rankings.forEach((ranking, index) => {
-      const item = ranking.itemObject;
-      const rankingElement = document.createElement('div');
-      rankingElement.className = 'ranking-item';
-      
-      if (item && typeof item === 'object') {
-        // Enhanced display for Suno songs
-        rankingElement.innerHTML = `
-          <div class="ranking-position">${index + 1}</div>
-          <div class="song-thumbnail">
-            <img src="${item.coverImage || 'assets/default-cover.png'}" alt="${item.title} cover">
-          </div>
-          <div class="ranking-info">
-            <h3><a href="${item.sunoUrl}" target="_blank">${item.title}</a></h3>
-            <div class="song-author">
-              <img src="${item.authorAvatar || 'assets/default-avatar.png'}" alt="${item.author}" class="author-avatar">
-              <span>${item.author}</span>
-            </div>
-            <p><span class="score">${ranking.points} points</span> • 
-               ${ranking.firstPlace} first place, 
-               ${ranking.secondPlace} second place, 
-               ${ranking.thirdPlace} third place votes</p>
-          </div>
-        `;
-      } else {
-        // Fallback for simple text items
-        rankingElement.innerHTML = `
-          <div class="ranking-position">${index + 1}</div>
-          <div class="ranking-info">
-            <h3>${ranking.item}</h3>
-            <p><span class="score">${ranking.points} points</span> • 
-               ${ranking.firstPlace} first place, 
-               ${ranking.secondPlace} second place, 
-               ${ranking.thirdPlace} third place votes</p>
-          </div>
-        `;
-      }
-      
-      this.currentRanking.appendChild(rankingElement);
+        const item = ranking.itemObject;
+        const rankingElement = document.createElement('div');
+        rankingElement.className = 'ranking-item';
+        
+        if (item && typeof item === 'object') {
+            let statsHtml = '';
+            
+            if (hasStarRatings || rankingType === 'star-rating') {
+                // Star rating display
+                const avgRating = ranking.starRatingAvg || 0;
+                const voteCount = ranking.starRatingCount || 0;
+                
+                statsHtml = `
+                    <p>
+                        <span class="star-results">
+                            ${this.generateStarDisplay(avgRating)}
+                            <span class="star-average">${avgRating.toFixed(1)}</span>
+                        </span>
+                        • ${voteCount} ${voteCount === 1 ? 'rating' : 'ratings'}
+                    </p>
+                `;
+            } else {
+                // Ranked choice display (existing)
+                statsHtml = `
+                    <p><span class="score">${ranking.points} points</span> • 
+                       ${ranking.firstPlace} first place, 
+                       ${ranking.secondPlace} second place, 
+                       ${ranking.thirdPlace} third place votes</p>
+                `;
+            }
+            
+            // Enhanced display for Suno songs
+            rankingElement.innerHTML = `
+                <div class="ranking-position">${index + 1}</div>
+                <div class="song-thumbnail">
+                    <img src="${item.coverImage || 'assets/default-cover.png'}" alt="${item.title} cover">
+                </div>
+                <div class="ranking-info">
+                    <h3><a href="${item.sunoUrl}" target="_blank">${item.title}</a></h3>
+                    <div class="song-author">
+                        <img src="${item.authorAvatar || 'assets/default-avatar.png'}" alt="${item.author}" class="author-avatar">
+                        <span>${item.author}</span>
+                    </div>
+                    ${statsHtml}
+                </div>
+            `;
+        } else {
+            // Fallback for simple text items
+            // ...existing fallback code...
+        }
+        
+        this.currentRanking.appendChild(rankingElement);
     });
-  }
+}
+
+// Helper method to generate star display for results
+generateStarDisplay(rating) {
+    let html = '';
+    // Full stars
+    for (let i = 1; i <= Math.floor(rating); i++) {
+        html += '<span class="star selected">★</span>';
+    }
+    // Half star
+    if (rating % 1 >= 0.5) {
+        html += '<span class="star half-selected">★</span>';
+    }
+    // Empty stars
+    const emptyStars = 5 - Math.ceil(rating);
+    for (let i = 0; i < emptyStars; i++) {
+        html += '<span class="star">★</span>';
+    }
+    return html;
+}
 
   switchTab(button) {
     if (!button) return;
@@ -755,6 +822,14 @@ class PlaylistManager {
     this.savePlaylistBtn.textContent = 'Update Playlist';
     this.savePlaylistBtn.dataset.mode = 'edit';
     this.savePlaylistBtn.dataset.playlistId = playlist.id;
+
+    // Set the ranking type radio button
+    const rankingType = playlist.rankingType || 'ranked-choice';
+    const rankingTypeInputs = document.getElementsByName('ranking-type');
+    
+    for (const input of rankingTypeInputs) {
+        input.checked = (input.value === rankingType);
+    }
   }
 
   // Delete playlist functionality

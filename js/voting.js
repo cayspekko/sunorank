@@ -22,6 +22,16 @@ class VotingManager {
       second: null,
       third: null
     };
+
+    // Add properties for star rating
+    this.currentSongIndex = 0;
+    this.starRatings = {};
+    this.starRatingContainer = document.getElementById('star-rating-container');
+    this.songCard = document.getElementById('song-card');
+    this.songProgress = document.getElementById('song-progress');
+    this.nextSongBtn = document.getElementById('next-song-btn');
+    this.prevSongBtn = document.getElementById('prev-song-btn');
+    this.submitStarRatingBtn = document.getElementById('submit-star-rating-btn');
     
     this.setupEventListeners();
   }
@@ -41,46 +51,130 @@ class VotingManager {
     if (this.voteButton) {
       this.voteButton.addEventListener('click', () => this.submitVote());
     }
+
+    // Star rating navigation
+    if (this.nextSongBtn) {
+      this.nextSongBtn.addEventListener('click', () => this.nextSong());
+    }
+    
+    if (this.prevSongBtn) {
+      this.prevSongBtn.addEventListener('click', () => this.previousSong());
+    }
+    
+    if (this.submitStarRatingBtn) {
+      this.submitStarRatingBtn.addEventListener('click', () => this.submitVote());
+    }
   }
   
   // Start the voting process for a playlist
   async startVoting(playlistId, isPublic = false) {
     try {
-      app.showLoading('Loading playlist...');
+      app.showLoading();
       
-      // Get the playlist
+      // Get the playlist details
       const playlist = await FirebaseService.getPlaylist(playlistId);
+      
       if (!playlist) {
-        app.showMessage('Playlist not found');
+        app.showMessage('Playlist not found.');
         return;
       }
       
       this.currentPlaylist = playlist;
       this.items = [...playlist.items];
       
-      // Reset selections
-      this.selections = {
-        first: null,
-        second: null,
-        third: null
+      // Use the rankingType directly from the playlist
+      const rankingType = playlist.rankingType;
+      console.log("Playlist ranking type:", rankingType);
+      
+      // Get ALL relevant DOM elements - refresh these references to ensure they're current
+      const rankedChoiceContainer = document.getElementById('ranked-choice-container');
+      const starRatingContainer = document.getElementById('star-rating-container');
+      const resultsContainer = document.getElementById('results-container');
+      const matchupContainer = document.getElementById('matchup-container');
+      const votingSongsContainer = document.getElementById('voting-songs-container');
+      
+      // Helper function to forcefully hide an element
+      const forceHide = (element) => {
+        if (!element) return;
+        element.classList.add('hidden');
+        element.style.display = 'none'; // Force hide with inline style
       };
       
+      // Helper function to show an element
+      const forceShow = (element) => {
+        if (!element) return;
+        element.classList.remove('hidden');
+        element.style.display = 'block'; // Force display as block
+        console.log(`Showing element: ${element.id}, new display: ${element.style.display}`);
+      };
+      
+      // Always hide all containers first
+      forceHide(rankedChoiceContainer);
+      forceHide(starRatingContainer);
+      forceHide(resultsContainer);
+      forceHide(matchupContainer);
+      
+      // Make sure voting section itself is visible
+      const votingSection = document.getElementById('voting-section');
+      if (votingSection) {
+        votingSection.classList.remove('hidden');
+      }
+      
+      // Then show only the appropriate container based on ranking type
+      if (rankingType && rankingType.toLowerCase() === 'star-rating') {
+        // Reset for star rating
+        this.starRatings = {};
+        this.currentSongIndex = 0;
+        
+        // Update the reference to the star rating container
+        this.starRatingContainer = starRatingContainer;
+        
+        // Show ONLY star rating UI, hide ranked choice UI
+        forceShow(starRatingContainer);
+        forceHide(votingSongsContainer); // Also hide the songs container used by ranked choice
+        console.log("Star rating UI should be visible, ranked choice hidden");
+        
+        if (starRatingContainer) {
+          console.log("Star container display after:", starRatingContainer.style.display);
+          console.log("Star container classes after:", starRatingContainer.className);
+        }
+        
+        // Set up the first song
+        this.displayCurrentSong();
+      } else if (!rankingType || rankingType.toLowerCase() === 'ranked-choice') {
+        // Reset selections for ranked choice
+        this.selections = {
+          first: null,
+          second: null,
+          third: null
+        };
+        
+        // Show ONLY ranked choice UI, hide star rating
+        forceShow(rankedChoiceContainer || this.songsContainer);
+        forceShow(votingSongsContainer);
+        forceHide(starRatingContainer);
+        console.log("Ranked choice UI should be visible, star rating hidden");
+      } else {
+        console.error("Unknown ranking type:", rankingType);
+      }
+      
       // Set title
-      this.votingTitle.textContent = `Vote on: ${playlist.name}`;
+      if (this.votingTitle) this.votingTitle.textContent = `Vote on: ${playlist.name}`;
       
       // Check if user is authenticated
       if (!authService.isLoggedIn() && !isPublic) {
         this.showLoginPrompt();
-      } else {
-        this.hideLoginPrompt();
+        return;
       }
       
-      // Navigate to voting section
+      // Navigate to the voting section
       app.navigateTo('voting-section', { id: playlistId });
       
       // Render all songs for the simple "choose three" UI
-      this.renderSongsForSelection();
-
+      if (!rankingType || rankingType.toLowerCase() === 'ranked-choice') {
+        this.renderSongsForSelection();
+      }
+      
       // Check if voting is still open
       if (playlist.votingDeadline) {
         const now = new Date();
@@ -92,6 +186,15 @@ class VotingManager {
 
         // Start the countdown timer
         this.startCountdown(deadline);
+      }
+
+      // Set up submit button based on voting type
+      if (rankingType && rankingType.toLowerCase() === 'star-rating') {
+        if (this.voteButton) this.voteButton.classList.add('hidden');
+        if (this.submitStarRatingBtn) this.submitStarRatingBtn.classList.remove('hidden');
+      } else {
+        if (this.voteButton) this.voteButton.classList.remove('hidden');
+        if (this.submitStarRatingBtn) this.submitStarRatingBtn.classList.add('hidden');
       }
     } catch (error) {
       console.error('Error starting voting:', error);
@@ -173,7 +276,7 @@ class VotingManager {
         </div>
         <div class="song-info">
           <div class="song-title">${song.title}</div>
-          <div class="song-artist">${song.author || 'Unknown'}</div>
+          <div class="song-artist">${song.artist || 'Unknown'}</div>
         </div>
       `;
       
@@ -306,54 +409,84 @@ class VotingManager {
   
   // Submit the final vote
   async submitVote() {
-    if (!authService.isLoggedIn()) {
-      app.showMessage('You must be logged in to vote');
-      this.showLoginPrompt();
-      return;
-    }
-    
-    if (!this.currentPlaylist) {
-      app.showMessage('No playlist selected');
-      return;
-    }
-    
-    // Ensure we have all three selections
-    if (!this.selections.first || !this.selections.second || !this.selections.third) {
-      app.showMessage('Please select your top three songs before submitting');
-      return;
-    }
-    
     try {
-      // Prepare vote submission
-      app.showLoading('Submitting your vote...');
+      if (!this.currentPlaylist) {
+        app.showMessage('No playlist selected');
+        return;
+      }
       
-      const currentUser = authService.getCurrentUser();
+      if (!authService.isLoggedIn()) {
+        app.showMessage('Please log in to vote');
+        return;
+      }
       
-      // Prepare vote data
-      const voteData = {
-        playlistId: this.currentPlaylist.id,
-        userId: currentUser.uid,
-        displayName: currentUser.displayName || 'Anonymous',
-        photoURL: currentUser.photoURL || '',
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        votes: [
-          {
-            songId: this.selections.first.id,
-            rank: 1,
-            songTitle: this.selections.first.title
-          },
-          {
-            songId: this.selections.second.id,
-            rank: 2,
-            songTitle: this.selections.second.title
-          },
-          {
-            songId: this.selections.third.id,
-            rank: 3,
-            songTitle: this.selections.third.title
+      const rankingType = this.currentPlaylist.rankingType || 'ranked-choice';
+      let voteData;
+      
+      if (rankingType === 'ranked-choice') {
+        // Ensure we have all three selections
+        if (!this.selections.first || !this.selections.second || !this.selections.third) {
+          app.showMessage('Please select your top three songs before submitting');
+          return;
+        }
+        
+        const currentUser = authService.getCurrentUser();
+        
+        // Prepare vote data
+        voteData = {
+          playlistId: this.currentPlaylist.id,
+          userId: currentUser.uid,
+          displayName: currentUser.displayName || 'Anonymous',
+          photoURL: currentUser.photoURL || '',
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          votes: [
+            {
+              songId: this.selections.first.id,
+              rank: 1,
+              songTitle: this.selections.first.title
+            },
+            {
+              songId: this.selections.second.id,
+              rank: 2,
+              songTitle: this.selections.second.title
+            },
+            {
+              songId: this.selections.third.id,
+              rank: 3,
+              songTitle: this.selections.third.title
+            }
+          ]
+        };
+      } else if (rankingType === 'star-rating') {
+        // Check if any songs have been rated
+        const ratedSongs = this.items.filter(song => this.starRatings[song.id] > 0);
+        
+        if (ratedSongs.length === 0) {
+          app.showMessage('Please rate at least one song before submitting');
+          return;
+        }
+        
+        // Format star ratings for submission
+        const starVotes = [];
+        this.items.forEach(song => {
+          if (this.starRatings[song.id]) {
+            starVotes.push({
+              songId: song.id,
+              rating: this.starRatings[song.id],
+              songTitle: song.title
+            });
           }
-        ]
-      };
+        });
+        
+        voteData = {
+          userId: authService.getCurrentUser().uid,
+          userName: authService.getCurrentUser().displayName || 'Anonymous',
+          playlistId: this.currentPlaylist.id,
+          createdAt: new Date(),
+          voteType: 'star-rating',
+          starVotes: starVotes
+        };
+      }
       
       // Submit the vote to Firestore
       await FirebaseService.submitVote(voteData);
@@ -453,11 +586,12 @@ class VotingManager {
       if (timeLeft <= 0) {
         clearInterval(intervalId);
         countdownElement.textContent = 'Voting has ended.';
-        this.voteButton.disabled = true;
+        if (this.voteButton) this.voteButton.disabled = true;
         return;
       }
 
-      const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+      const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
 
@@ -467,7 +601,128 @@ class VotingManager {
     updateCountdown();
     const intervalId = setInterval(updateCountdown, 1000);
   }
+  
+  // Add methods for star rating
+  displayCurrentSong() {
+    if (!this.items || this.items.length === 0 || !this.songCard) return;
+    
+    const song = this.items[this.currentSongIndex];
+    const totalSongs = this.items.length;
+    const currentRating = this.starRatings[song.id] || 0;
+    
+    // Create the Suno URL for the song
+    const sunoUrl = song.sunoUrl || `https://suno.com/song/${song.id}`;
+    
+    // Update song card
+    this.songCard.innerHTML = `
+      <img src="${song.coverImage || 'assets/default-cover.png'}" alt="${song.title}" class="song-card-image">
+      <div class="song-card-content">
+        <h3 class="song-card-title">
+          <a href="${sunoUrl}" target="_blank" rel="noopener noreferrer">${song.title}</a>
+        </h3>
+        <div class="song-card-author">
+          <img src="${song.authorAvatar || 'assets/default-avatar.png'}" alt="${song.author}" class="author-avatar">
+          <span>${song.author}</span>
+        </div>
+        <div class="star-selector" data-song-id="${song.id}">
+          ${this.generateStars(currentRating)}
+        </div>
+        <div class="song-progress">
+          <span>Song ${this.currentSongIndex + 1} of ${totalSongs}</span>
+          <span>${this.getCompletionStatus()}</span>
+        </div>
+      </div>
+    `;
+    
+    // Attach click handlers to stars
+    const stars = this.songCard.querySelectorAll('.star');
+    stars.forEach((star, index) => {
+      star.addEventListener('click', () => this.setRating(song.id, index + 1));
+    });
+    
+    // Enable/disable navigation buttons
+    if (this.prevSongBtn) this.prevSongBtn.disabled = this.currentSongIndex === 0;
+    if (this.nextSongBtn) this.nextSongBtn.disabled = this.currentSongIndex === totalSongs - 1;
+    if (this.submitStarRatingBtn) this.submitStarRatingBtn.disabled = !this.hasAnyRatings();
+  }
+  
+  generateStars(rating) {
+    let starsHtml = '';
+    for (let i = 1; i <= 5; i++) {
+      starsHtml += `<span class="star ${i <= rating ? 'selected' : ''}" data-value="${i}">★</span>`;
+    }
+    return starsHtml;
+  }
+  
+  setRating(songId, rating) {
+    console.log(`Setting rating for song ${songId} to ${rating}`);
+    this.starRatings[songId] = rating;
+    
+    // Update UI to show selected stars
+    const stars = document.querySelectorAll(`.star-selector[data-song-id="${songId}"] .star`);
+    stars.forEach((star, index) => {
+      star.classList.toggle('selected', index < rating);
+    });
+    
+    // Enable submit button as long as at least one song is rated
+    const hasRatings = this.hasAnyRatings();
+    console.log(`Has any ratings? ${hasRatings}`);
+    if (this.submitStarRatingBtn) {
+      console.log(`Updating submit button disabled state to: ${!hasRatings}`);
+      this.submitStarRatingBtn.disabled = !hasRatings;
+    } else {
+      console.error('Submit button element not found');
+    }
+  }
+  
+  isStarRatingComplete() {
+    // Check if all songs have a rating
+    const allRated = this.items.every(song => this.starRatings[song.id] > 0);
+    console.log('Current ratings:', this.starRatings);
+    console.log(`Songs rated: ${Object.keys(this.starRatings).length}/${this.items.length}`);
+    return allRated;
+  }
+  
+  hasAnyRatings() {
+    // Check if at least one song has a rating
+    return this.items.some(song => this.starRatings[song.id] > 0);
+  }
+  
+  getCompletionStatus() {
+    // Count songs that have a rating greater than 0
+    const rated = this.items.filter(song => this.starRatings[song.id] > 0).length;
+    const total = this.items.length;
+    return `${rated}/${total} songs rated`;
+  }
+  
+  nextSong() {
+    if (this.currentSongIndex < this.items.length - 1) {
+      this.currentSongIndex++;
+      this.displayCurrentSong();
+    }
+  }
+  
+  previousSong() {
+    if (this.currentSongIndex > 0) {
+      this.currentSongIndex--;
+      this.displayCurrentSong();
+    }
+  }
 }
 
 // Initialize Voting Manager
 const votingManager = new VotingManager();
+
+// Add a direct event listener to the submit button
+document.addEventListener('DOMContentLoaded', () => {
+  const submitStarRatingBtn = document.getElementById('submit-star-rating-btn');
+  if (submitStarRatingBtn) {
+    console.log('Adding direct click handler to submit-star-rating-btn');
+    submitStarRatingBtn.addEventListener('click', () => {
+      console.log('Submit button clicked directly');
+      votingManager.submitVote();
+    });
+  } else {
+    console.error('Could not find submit-star-rating-btn on DOMContentLoaded');
+  }
+});

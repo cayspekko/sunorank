@@ -206,10 +206,21 @@ const FirebaseService = {
       if (!existingVoteQuery.empty) {
         // User has already voted, update their existing vote
         voteId = existingVoteQuery.docs[0].id;
-        await db.collection(COLLECTIONS.VOTES).doc(voteId).update({
-          votes: voteData.votes,
-          timestamp: voteData.timestamp
-        });
+        
+        // Update based on vote type
+        if (voteData.voteType === 'star-rating') {
+          await db.collection(COLLECTIONS.VOTES).doc(voteId).update({
+            starVotes: voteData.starVotes,
+            voteType: voteData.voteType,
+            createdAt: voteData.createdAt
+          });
+        } else {
+          // Default to ranked-choice
+          await db.collection(COLLECTIONS.VOTES).doc(voteId).update({
+            votes: voteData.votes,
+            timestamp: voteData.timestamp
+          });
+        }
       } else {
         // New vote
         const docRef = await db.collection(COLLECTIONS.VOTES).add(voteData);
@@ -277,100 +288,126 @@ const FirebaseService = {
 
   // Helper to calculate current rankings based on votes
   calculateRankings(items, votes) {
-    // Initialize scores for all items
+    // Initialize scores
     const scores = {};
-    
-    // Create a map of item IDs to the original item objects
     const itemsMap = {};
     
     items.forEach(item => {
-      // If item is an object, use its ID as the key
-      const key = typeof item === 'object' && item !== null ? item.id : item;
-      scores[key] = { 
-        points: 0, 
-        firstPlace: 0, 
-        secondPlace: 0, 
-        thirdPlace: 0,
-        itemObject: item // Store the original item (object or string)
-      };
-      itemsMap[key] = item;
+        const key = typeof item === 'object' && item !== null ? item.id : item;
+        scores[key] = { 
+            points: 0, 
+            firstPlace: 0, 
+            secondPlace: 0, 
+            thirdPlace: 0,
+            starRatingTotal: 0,
+            starRatingCount: 0,
+            starRatingAvg: 0,
+            itemObject: item
+        };
+        itemsMap[key] = item;
     });
 
-    // Calculate points (3 for 1st choice, 2 for 2nd, 1 for 3rd)
+    // Check if there are any star rating votes
+    const hasStarRatings = votes.some(vote => vote.voteType === 'star-rating');
+    
+    // Process all votes
     votes.forEach(vote => {
-      // Check if vote has the new structure (votes array)
-      if (vote.votes && Array.isArray(vote.votes)) {
-        // Process votes array structure
-        vote.votes.forEach(voteItem => {
-          if (!voteItem || !voteItem.songId) return;
-          
-          const key = voteItem.songId;
-          if (!scores[key]) return;
-          
-          // Assign points based on rank
-          if (voteItem.rank === 1) {
-            scores[key].points += 3;
-            scores[key].firstPlace += 1;
-          } else if (voteItem.rank === 2) {
-            scores[key].points += 2;
-            scores[key].secondPlace += 1;
-          } else if (voteItem.rank === 3) {
-            scores[key].points += 1;
-            scores[key].thirdPlace += 1;
-          }
-        });
-      } else {
-        // Legacy vote structure with firstChoice, secondChoice, thirdChoice
-        // Extract the key (id) if the vote choice is an object
-        const firstKey = typeof vote.firstChoice === 'object' && vote.firstChoice !== null 
-                        ? vote.firstChoice.id 
-                        : vote.firstChoice;
-        
-        const secondKey = typeof vote.secondChoice === 'object' && vote.secondChoice !== null 
-                          ? vote.secondChoice.id 
-                          : vote.secondChoice;
-        
-        const thirdKey = typeof vote.thirdChoice === 'object' && vote.thirdChoice !== null 
-                        ? vote.thirdChoice.id 
-                        : vote.thirdChoice;
-        
-        if (firstKey && scores[firstKey]) {
-          scores[firstKey].points += 3;
-          scores[firstKey].firstPlace += 1;
+        if (vote.voteType === 'star-rating' && vote.starVotes) {
+            // Process star rating votes
+            vote.starVotes.forEach(starVote => {
+                const key = starVote.songId;
+                if (!scores[key]) return;
+                
+                scores[key].starRatingTotal += starVote.rating;
+                scores[key].starRatingCount += 1;
+            });
+        } else if (vote.votes && Array.isArray(vote.votes)) {
+            // Process new vote format with votes array
+            vote.votes.forEach(voteItem => {
+                if (!voteItem.songId || !scores[voteItem.songId]) return;
+                
+                const songId = voteItem.songId;
+                if (voteItem.rank === 1) {
+                    scores[songId].points += 3;
+                    scores[songId].firstPlace += 1;
+                } else if (voteItem.rank === 2) {
+                    scores[songId].points += 2;
+                    scores[songId].secondPlace += 1;
+                } else if (voteItem.rank === 3) {
+                    scores[songId].points += 1;
+                    scores[songId].thirdPlace += 1;
+                }
+            });
+        } else {
+            // Process ranked choice votes (old format)
+            // Extract the key (id) if the vote choice is an object
+            const firstKey = typeof vote.firstChoice === 'object' && vote.firstChoice !== null 
+                            ? vote.firstChoice.id 
+                            : vote.firstChoice;
+            
+            const secondKey = typeof vote.secondChoice === 'object' && vote.secondChoice !== null 
+                              ? vote.secondChoice.id 
+                              : vote.secondChoice;
+            
+            const thirdKey = typeof vote.thirdChoice === 'object' && vote.thirdChoice !== null 
+                            ? vote.thirdChoice.id 
+                            : vote.thirdChoice;
+            
+            if (firstKey && scores[firstKey]) {
+              scores[firstKey].points += 3;
+              scores[firstKey].firstPlace += 1;
+            }
+            
+            if (secondKey && scores[secondKey]) {
+              scores[secondKey].points += 2;
+              scores[secondKey].secondPlace += 1;
+            }
+            
+            if (thirdKey && scores[thirdKey]) {
+              scores[thirdKey].points += 1;
+              scores[thirdKey].thirdPlace += 1;
+            }
         }
-        
-        if (secondKey && scores[secondKey]) {
-          scores[secondKey].points += 2;
-          scores[secondKey].secondPlace += 1;
-        }
-        
-        if (thirdKey && scores[thirdKey]) {
-          scores[thirdKey].points += 1;
-          scores[thirdKey].thirdPlace += 1;
-        }
-      }
     });
-
+    
+    // Calculate averages for star ratings
+    Object.keys(scores).forEach(key => {
+        if (scores[key].starRatingCount > 0) {
+            scores[key].starRatingAvg = scores[key].starRatingTotal / scores[key].starRatingCount;
+            
+            // For mixed voting systems, convert star ratings to points
+            // This allows star and ranked choice votes to be shown together
+            if (!hasStarRatings) {
+                scores[key].points += scores[key].starRatingAvg;
+            }
+        }
+    });
+    
     // Convert to array for sorting
     const rankings = Object.keys(scores).map(key => ({
-      item: key,
-      itemObject: scores[key].itemObject,
-      ...scores[key]
+        item: key,
+        itemObject: scores[key].itemObject,
+        ...scores[key]
     }));
 
-    // Sort by points (descending), then by first place votes as tiebreaker
-    return rankings.sort((a, b) => {
-      if (b.points !== a.points) {
-        return b.points - a.points;
-      }
-      if (b.firstPlace !== a.firstPlace) {
-        return b.firstPlace - a.firstPlace;
-      }
-      if (b.secondPlace !== a.secondPlace) {
-        return b.secondPlace - a.secondPlace;
-      }
-      return b.thirdPlace - a.thirdPlace;
-    });
+    // Sort by appropriate metric based on voting type
+    if (hasStarRatings) {
+        // Sort by average star rating for star rating playlists
+        return rankings.sort((a, b) => {
+            if (b.starRatingCount === 0 && a.starRatingCount === 0) return 0;
+            if (b.starRatingCount === 0) return -1;
+            if (a.starRatingCount === 0) return 1;
+            return b.starRatingAvg - a.starRatingAvg;
+        });
+    } else {
+        // Use existing ranked choice sorting for ranked choice playlists
+        return rankings.sort((a, b) => {
+            if (b.points !== a.points) return b.points - a.points;
+            if (b.firstPlace !== a.firstPlace) return b.firstPlace - a.firstPlace;
+            if (b.secondPlace !== a.secondPlace) return b.secondPlace - a.secondPlace;
+            return b.thirdPlace - a.thirdPlace;
+        });
+    }
   },
   
   // Update playlist vote count

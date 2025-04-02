@@ -1111,6 +1111,115 @@ input[type="text"]:focus {
 	margin-bottom: 10px;
 }
 
+/* Star Rating Styles */
+.star-rating-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 20px 0;
+}
+
+.song-card {
+    width: 100%;
+    max-width: 500px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.song-card-image {
+    width: 100%;
+    aspect-ratio: 1/1;
+    object-fit: cover;
+    display: block;
+}
+
+.song-card-content {
+    padding: 20px;
+}
+
+.song-card-title {
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+.song-card-author {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.song-progress {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 15px;
+    font-size: 14px;
+    color: var(--gray-color);
+}
+
+.star-selector {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.star {
+    font-size: 30px;
+    cursor: pointer;
+    color: #ddd;
+    transition: var(--transition);
+}
+
+.star:hover, .star.selected {
+    color: gold;
+}
+
+.star-navigation {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 500px;
+    margin-top: 10px;
+}
+
+.star-results {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.star-results .star {
+    font-size: 18px;
+    cursor: default;
+}
+
+.star-average {
+    font-weight: 500;
+    margin-left: 5px;
+}
+
+/* Radio Group Styling */
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.radio-label input {
+    margin-right: 10px;
+}
+
 /* Responsive Styles */
 @media (max-width: 768px) {
     .app-container {

@@ -113,6 +113,20 @@
                         <input type="datetime-local" id="voting-deadline" />
                         <p class="help-text">Leave blank for no deadline.</p>
                     </div>
+                    <div class="form-group">
+                        <label>Ranking System:</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="ranking-type" value="ranked-choice" checked>
+                                Ranked Choice (Select top 3)
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="ranking-type" value="star-rating">
+                                Star Rating (1-5 stars per song)
+                            </label>
+                        </div>
+                        <p class="help-text">Choose how users will vote on songs.</p>
+                    </div>
                     <div class="buttons-row">
                         <button id="cancel-create-btn" class="secondary-btn">Cancel</button>
                         <button id="save-playlist-btn" class="primary-btn">Save Playlist</button>
@@ -235,6 +249,20 @@
                         <button id="submit-vote-btn" class="primary-btn">Submit Vote</button>
                     </div>
                     <div id="voting-countdown" class="countdown"></div>
+                    
+                    <!-- Add this within the voting section after the ranked choice container -->
+                    <div id="star-rating-container" class="star-rating-container hidden">
+                        <div id="song-card" class="song-card">
+                            <!-- Song card content will be loaded dynamically -->
+                        </div>
+                        
+                        <div class="star-navigation">
+                            <button id="prev-song-btn" class="secondary-btn">Previous Song</button>
+                            <button id="next-song-btn" class="primary-btn">Next Song</button>
+                        </div>
+                        
+                        <button id="submit-star-rating-btn" class="primary-btn" disabled>Submit Ratings</button>
+                    </div>
                 </div>
             </section>
 
