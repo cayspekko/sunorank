@@ -1,18 +1,42 @@
 // Voting functionality
 class VotingManager {
   constructor() {
-    // Voting elements
-    this.votingSection = document.getElementById('voting-section');
-    this.votingTitle = document.getElementById('voting-title');
+    // Common elements
     this.backToPlaylistBtn = document.getElementById('back-to-playlist-btn');
-    this.firstChoice = document.getElementById('first-choice');
-    this.secondChoice = document.getElementById('second-choice');
-    this.thirdChoice = document.getElementById('third-choice');
     this.voteButton = document.getElementById('submit-vote-btn');
-    this.voteLoginPrompt = document.getElementById('voting-login-prompt');
     
-    // Choose Three UI elements
-    this.songsContainer = document.getElementById('voting-songs-container');
+    // Ranked choice elements
+    this.matchupContainer = document.getElementById('matchup-container');
+    this.choiceA = document.getElementById('choice-a');
+    this.choiceB = document.getElementById('choice-b');
+    this.choiceABtn = document.getElementById('choice-a-btn');
+    this.choiceBBtn = document.getElementById('choice-b-btn');
+    this.skipBtn = document.getElementById('skip-btn');
+    this.votingProgress = document.getElementById('voting-progress');
+    this.votingProgressText = document.getElementById('voting-progress-text');
+    this.votingSongsContainer = document.getElementById('voting-songs-container');
+    
+    // Star rating elements
+    this.starRatingContainer = document.getElementById('star-rating-container');
+    this.songCard = document.getElementById('song-card');
+    this.songProgress = document.getElementById('song-progress');
+    this.nextSongBtn = document.getElementById('next-song-btn');
+    this.prevSongBtn = document.getElementById('prev-song-btn');
+    this.submitStarRatingBtn = document.getElementById('submit-star-rating-btn');
+    
+    // Bracket tournament elements
+    this.bracketContainer = document.getElementById('bracket-container');
+    this.bracketMatchup = document.getElementById('bracket-matchup');
+    this.bracketRoundTitle = document.getElementById('bracket-round-title');
+    this.bracketChoiceLeftBtn = document.getElementById('bracket-choice-left-btn');
+    this.bracketChoiceRightBtn = document.getElementById('bracket-choice-right-btn');
+    this.bracketProgress = document.getElementById('bracket-progress');
+    this.bracketVisualization = document.getElementById('bracket-visualization');
+    this.bracketAdminControls = document.getElementById('bracket-admin-controls');
+    this.bracketRoundSelect = document.getElementById('bracket-round-select');
+    this.bracketRoundDeadline = document.getElementById('bracket-round-deadline');
+    this.bracketUpdateRoundBtn = document.getElementById('bracket-update-round-btn');
+    this.bracketSubmitVotesBtn = document.getElementById('bracket-submit-votes-btn');
     
     // State
     this.currentPlaylist = null;
@@ -22,47 +46,74 @@ class VotingManager {
       second: null,
       third: null
     };
-
-    // Add properties for star rating
-    this.currentSongIndex = 0;
     this.starRatings = {};
-    this.starRatingContainer = document.getElementById('star-rating-container');
-    this.songCard = document.getElementById('song-card');
-    this.songProgress = document.getElementById('song-progress');
-    this.nextSongBtn = document.getElementById('next-song-btn');
-    this.prevSongBtn = document.getElementById('prev-song-btn');
-    this.submitStarRatingBtn = document.getElementById('submit-star-rating-btn');
+    this.currentSongIndex = 0;
+    
+    // Bracket tournament state
+    this.bracket = null;
+    this.currentMatchup = null;
+    this.currentRound = 1;
+    this.roundDeadline = null;
+    this.currentMatchupIndex = 0;
+    this.bracketWinners = [];
+    this.bracketVotes = {}; // Store user votes before submission
     
     this.setupEventListeners();
   }
   
   setupEventListeners() {
-    if (this.backToPlaylistBtn) {
-      this.backToPlaylistBtn.addEventListener('click', () => {
-        // Only navigate back if a playlist is loaded
-        if (this.currentPlaylist) {
-          playlistManager.viewPlaylist(this.currentPlaylist.id);
-        } else {
-          app.navigateTo('dashboard-section');
-        }
+    // Get DOM elements
+    this.voteButton = document.getElementById('submit-vote-btn');
+    this.submitStarRatingBtn = document.getElementById('submit-star-rating-btn');
+    this.bracketChoiceLeftBtn = document.getElementById('bracket-choice-left-btn');
+    this.bracketChoiceRightBtn = document.getElementById('bracket-choice-right-btn');
+    this.bracketSubmitVotesBtn = document.getElementById('bracket-submit-votes-btn');
+    this.bracketUpdateRoundBtn = document.getElementById('bracket-update-round-btn');
+    this.bracketRoundSelect = document.getElementById('bracket-round-select');
+    this.bracketRoundDeadline = document.getElementById('bracket-round-deadline');
+    this.bracketRoundTitle = document.getElementById('bracket-round-title');
+    this.bracketProgress = document.getElementById('bracket-progress');
+    this.bracketMatchup = document.getElementById('bracket-matchup');
+    this.bracketVisualization = document.getElementById('bracket-visualization');
+    this.bracketAdminControls = document.getElementById('bracket-admin-controls');
+    
+    // Add event listeners for ranked choice voting
+    if (this.voteButton) {
+      this.voteButton.addEventListener('click', () => {
+        this.submitVote();
       });
     }
     
-    if (this.voteButton) {
-      this.voteButton.addEventListener('click', () => this.submitVote());
-    }
-
-    // Star rating navigation
-    if (this.nextSongBtn) {
-      this.nextSongBtn.addEventListener('click', () => this.nextSong());
-    }
-    
-    if (this.prevSongBtn) {
-      this.prevSongBtn.addEventListener('click', () => this.previousSong());
-    }
-    
+    // Add event listeners for star rating
     if (this.submitStarRatingBtn) {
-      this.submitStarRatingBtn.addEventListener('click', () => this.submitVote());
+      this.submitStarRatingBtn.addEventListener('click', () => {
+        this.submitStarRatings();
+      });
+    }
+    
+    // Add event listeners for bracket tournament
+    if (this.bracketChoiceLeftBtn) {
+      this.bracketChoiceLeftBtn.addEventListener('click', () => {
+        this.selectBracketWinner('left');
+      });
+    }
+    
+    if (this.bracketChoiceRightBtn) {
+      this.bracketChoiceRightBtn.addEventListener('click', () => {
+        this.selectBracketWinner('right');
+      });
+    }
+    
+    if (this.bracketSubmitVotesBtn) {
+      this.bracketSubmitVotesBtn.addEventListener('click', () => {
+        this.submitBracketVotes();
+      });
+    }
+    
+    if (this.bracketUpdateRoundBtn) {
+      this.bracketUpdateRoundBtn.addEventListener('click', () => {
+        this.updateBracketRound();
+      });
     }
   }
   
@@ -92,6 +143,7 @@ class VotingManager {
       const resultsContainer = document.getElementById('results-container');
       const matchupContainer = document.getElementById('matchup-container');
       const votingSongsContainer = document.getElementById('voting-songs-container');
+      const bracketContainer = document.getElementById('bracket-container');
       
       // Helper function to forcefully hide an element
       const forceHide = (element) => {
@@ -113,6 +165,7 @@ class VotingManager {
       forceHide(starRatingContainer);
       forceHide(resultsContainer);
       forceHide(matchupContainer);
+      forceHide(bracketContainer);
       
       // Make sure voting section itself is visible
       const votingSection = document.getElementById('voting-section');
@@ -141,6 +194,36 @@ class VotingManager {
         
         // Set up the first song
         this.displayCurrentSong();
+      } else if (rankingType && rankingType.toLowerCase() === 'bracket') {
+        // Validate that the playlist has a valid number of items for a bracket
+        const validSizes = [2, 4, 8, 16, 32];
+        if (!validSizes.includes(this.items.length)) {
+          app.showMessage(`Bracket tournaments require 2, 4, 8, 16, or 32 songs. This playlist has ${this.items.length} songs.`);
+          playlistManager.viewPlaylist(this.currentPlaylist.id);
+          return;
+        }
+        
+        // Initialize bracket tournament
+        this.initializeBracket();
+        
+        // Load the current round from Firebase
+        await this.loadCurrentRound();
+        
+        // Show ONLY bracket tournament UI, hide other UI
+        forceShow(bracketContainer);
+        forceHide(rankedChoiceContainer);
+        forceHide(starRatingContainer);
+        forceHide(votingSongsContainer);
+        console.log("Bracket tournament UI should be visible, other UI hidden");
+        
+        // Set up the first matchup
+        await this.displayCurrentMatchup();
+        
+        // Check if there's a voting deadline
+        if (playlist.votingDeadline) {
+          const deadline = new Date(playlist.votingDeadline);
+          this.startCountdown(deadline);
+        }
       } else if (!rankingType || rankingType.toLowerCase() === 'ranked-choice') {
         // Reset selections for ranked choice
         this.selections = {
@@ -149,8 +232,8 @@ class VotingManager {
           third: null
         };
         
-        // Show ONLY ranked choice UI, hide star rating
-        forceShow(rankedChoiceContainer || this.songsContainer);
+        // Show ONLY ranked choice UI, hide star rating UI
+        forceShow(rankedChoiceContainer);
         forceShow(votingSongsContainer);
         forceHide(starRatingContainer);
         console.log("Ranked choice UI should be visible, star rating hidden");
@@ -192,6 +275,9 @@ class VotingManager {
       if (rankingType && rankingType.toLowerCase() === 'star-rating') {
         if (this.voteButton) this.voteButton.classList.add('hidden');
         if (this.submitStarRatingBtn) this.submitStarRatingBtn.classList.remove('hidden');
+      } else if (rankingType && rankingType.toLowerCase() === 'bracket') {
+        if (this.voteButton) this.voteButton.classList.add('hidden');
+        if (this.submitStarRatingBtn) this.submitStarRatingBtn.classList.add('hidden');
       } else {
         if (this.voteButton) this.voteButton.classList.remove('hidden');
         if (this.submitStarRatingBtn) this.submitStarRatingBtn.classList.add('hidden');
@@ -204,510 +290,791 @@ class VotingManager {
     }
   }
   
-  // Show login prompt for unauthenticated users
-  showLoginPrompt() {
-    if (this.voteLoginPrompt) {
-      this.voteLoginPrompt.classList.remove('hidden');
-      
-      // Hide the voting container
-      if (this.songsContainer) {
-        this.songsContainer.classList.add('hidden');
-      }
-      
-      // Disable voting button
-      if (this.voteButton) {
-        this.voteButton.disabled = true;
-      }
-    }
-  }
-  
-  // Hide login prompt for authenticated users
-  hideLoginPrompt() {
-    if (this.voteLoginPrompt) {
-      this.voteLoginPrompt.classList.add('hidden');
-      
-      // Show the voting container
-      if (this.songsContainer) {
-        this.songsContainer.classList.remove('hidden');
-      }
-      
-      // Enable voting button
-      if (this.voteButton) {
-        this.voteButton.disabled = false;
-      }
-    }
-  }
-  
-  // Render all songs for simple selection
-  renderSongsForSelection() {
-    // Clear previous content
-    if (!this.songsContainer) return;
+  // Initialize bracket tournament
+  initializeBracket() {
+    console.log("Initializing bracket with items:", this.items.length);
     
-    this.songsContainer.innerHTML = '';
-    
-    // Create instructions
-    const instructions = document.createElement('div');
-    instructions.className = 'selection-instructions';
-    instructions.innerHTML = `
-      <h3>Select Your Top Three Songs</h3>
-      <p>Click on songs to select them in order (1st, 2nd, and 3rd place).</p>
-      <p>Click again to deselect. You can change your selections at any time.</p>
-    `;
-    this.songsContainer.appendChild(instructions);
-    
-    // Use the original items array instead of shuffling to maintain input order
-    const songItems = [...this.items];
-    
-    // Create song grid
-    const songGrid = document.createElement('div');
-    songGrid.className = 'song-selection-grid';
-    
-    // Add each song to the grid
-    songItems.forEach(song => {
-      const songCard = document.createElement('div');
-      songCard.className = 'song-card selectable';
-      songCard.dataset.songId = song.id;
-      
-      // Create UI for the song
-      songCard.innerHTML = `
-        <div class="song-selection-indicator"></div>
-        <div class="song-thumbnail">
-          <img src="${song.coverImage || 'images/default-thumbnail.jpg'}" alt="${song.title}">
-        </div>
-        <div class="song-info">
-          <div class="song-title">${song.title}</div>
-          <div class="song-artist">${song.artist || 'Unknown'}</div>
-        </div>
-      `;
-      
-      // Add click event to select/deselect
-      songCard.addEventListener('click', () => this.toggleSongSelection(song, songCard));
-      
-      songGrid.appendChild(songCard);
-    });
-    
-    this.songsContainer.appendChild(songGrid);
-    
-    // Add voting button container
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'voting-buttons';
-    buttonContainer.innerHTML = `
-      <button id="submit-vote-btn" class="primary-btn">Submit Vote</button>
-    `;
-    
-    const voteBtn = buttonContainer.querySelector('#submit-vote-btn');
-    voteBtn.disabled = true; // Disabled until all selections are made
-    voteBtn.addEventListener('click', () => this.submitVote());
-    
-    this.songsContainer.appendChild(buttonContainer);
-    
-    // Show the voting UI
-    this.showVotingUI();
-    
-    // Hide the matchup-based UI elements
-    this.hideMatchupUI();
-  }
-  
-  // Toggle song selection when clicked
-  toggleSongSelection(song, songCard) {
-    // Check if user is authenticated
-    if (!authService.isLoggedIn()) {
-      app.showMessage('Please log in to vote');
-      this.showLoginPrompt();
+    // Validate that we have items
+    if (!this.items || this.items.length === 0) {
+      console.error("No items available for bracket tournament");
       return;
     }
     
-    // Check if this song is already selected
-    const isFirst = this.selections.first && this.selections.first.id === song.id;
-    const isSecond = this.selections.second && this.selections.second.id === song.id;
-    const isThird = this.selections.third && this.selections.third.id === song.id;
-    
-    // Remove any existing selection classes
-    songCard.classList.remove('selected-first', 'selected-second', 'selected-third');
-    
-    // Handle deselection
-    if (isFirst) {
-      this.selections.first = null;
-    } else if (isSecond) {
-      this.selections.second = null;
-    } else if (isThird) {
-      this.selections.third = null;
-    } else {
-      // Handle new selection
-      if (!this.selections.first) {
-        this.selections.first = song;
-        songCard.classList.add('selected-first');
-      } else if (!this.selections.second) {
-        this.selections.second = song;
-        songCard.classList.add('selected-second');
-      } else if (!this.selections.third) {
-        this.selections.third = song;
-        songCard.classList.add('selected-third');
-      } else {
-        app.showMessage('You have already selected three songs. Deselect one first.');
-        return;
-      }
-    }
-    
-    // Update all song cards to reflect current selections
-    this.updateSelectionDisplay();
-    
-    // Enable/disable submit button based on selections
-    const submitBtn = document.getElementById('submit-vote-btn');
-    if (submitBtn) {
-      submitBtn.disabled = !(this.selections.first && this.selections.second && this.selections.third);
-    }
-  }
-  
-  // Update the display of all songs to reflect current selections
-  updateSelectionDisplay() {
-    const songCards = document.querySelectorAll('.song-card.selectable');
-    
-    songCards.forEach(card => {
-      // Clear previous selection classes
-      card.classList.remove('selected-first', 'selected-second', 'selected-third');
-      
-      const songId = card.dataset.songId;
-      
-      // Apply appropriate selection classes
-      if (this.selections.first && this.selections.first.id === songId) {
-        card.classList.add('selected-first');
-        card.querySelector('.song-selection-indicator').textContent = '1st';
-      } else if (this.selections.second && this.selections.second.id === songId) {
-        card.classList.add('selected-second');
-        card.querySelector('.song-selection-indicator').textContent = '2nd';
-      } else if (this.selections.third && this.selections.third.id === songId) {
-        card.classList.add('selected-third');
-        card.querySelector('.song-selection-indicator').textContent = '3rd';
-      } else {
-        card.querySelector('.song-selection-indicator').textContent = '';
-      }
-    });
-  }
-  
-  // Show the voting UI
-  showVotingUI() {
-    // Hide the results container if it exists
-    const resultsContainer = document.getElementById('results-container');
-    if (resultsContainer) {
-      resultsContainer.classList.add('hidden');
-    }
-    
-    // Show the songs container
-    if (this.songsContainer) {
-      this.songsContainer.classList.remove('hidden');
-    }
-  }
-  
-  // Hide the matchup UI elements
-  hideMatchupUI() {
-    const matchupContainer = document.getElementById('matchup-container');
-    if (matchupContainer) {
-      matchupContainer.classList.add('hidden');
-    }
-  }
-  
-  // Submit the final vote
-  async submitVote() {
+    // Create a binary tree structure for the bracket
     try {
-      if (!this.currentPlaylist) {
-        app.showMessage('No playlist selected');
+      this.bracket = this.createBracketTree(this.items);
+      
+      // Initialize current matchup
+      this.currentMatchup = this.bracket;
+      
+      // Initialize current round
+      this.currentRound = 1;
+      
+      // Initialize round deadline
+      this.roundDeadline = null;
+      
+      console.log("Bracket initialized successfully");
+    } catch (error) {
+      console.error("Error initializing bracket:", error);
+    }
+  }
+  
+  // Create a binary tree structure for the bracket
+  createBracketTree(items) {
+    console.log("Creating bracket tree with items:", items.length);
+    
+    // Handle empty items array
+    if (!items || items.length === 0) {
+      console.error("No items provided for bracket tree");
+      return null;
+    }
+    
+    // Base case: if there's only one item, return it as a leaf node
+    if (items.length === 1) {
+      return {
+        song: items[0],
+        winner: null,
+        children: []
+      };
+    }
+    
+    // Recursive case: split the items into two halves and create child nodes
+    const mid = Math.floor(items.length / 2);
+    const left = this.createBracketTree(items.slice(0, mid));
+    const right = this.createBracketTree(items.slice(mid));
+    
+    // Create the current node with the two child nodes
+    return {
+      song: null,
+      winner: null,
+      children: [left, right]
+    };
+  }
+  
+  // Display the current matchup for the bracket tournament
+  async displayCurrentMatchup() {
+    if (!this.bracketMatchup) return;
+    
+    try {
+      // Get the current matchup
+      const matchup = await this.getCurrentBracketMatchup();
+      if (!matchup) {
+        console.error("No matchup available");
         return;
       }
       
-      if (!authService.isLoggedIn()) {
-        app.showMessage('Please log in to vote');
-        return;
+      console.log("Displaying matchup:", matchup);
+      
+      // Update the UI with the current matchup
+      this.bracketMatchup.innerHTML = `
+        <div class="bracket-song" data-song-id="${matchup.songA.id}" data-choice="left">
+          <img src="${matchup.songA.coverImage || 'assets/default-cover.png'}" alt="${matchup.songA.title}" class="bracket-song-image">
+          <h3 class="bracket-song-title">${matchup.songA.title}</h3>
+          <p class="bracket-song-artist">${matchup.songA.artist || ''}</p>
+        </div>
+        
+        <div class="bracket-vs">
+          <span>VS</span>
+        </div>
+        
+        <div class="bracket-song" data-song-id="${matchup.songB.id}" data-choice="right">
+          <img src="${matchup.songB.coverImage || 'assets/default-cover.png'}" alt="${matchup.songB.title}" class="bracket-song-image">
+          <h3 class="bracket-song-title">${matchup.songB.title}</h3>
+          <p class="bracket-song-artist">${matchup.songB.artist || ''}</p>
+        </div>
+      `;
+      
+      // Add click event listeners to the bracket songs
+      const bracketSongs = this.bracketMatchup.querySelectorAll('.bracket-song');
+      bracketSongs.forEach(song => {
+        song.addEventListener('click', (e) => {
+          const choice = song.dataset.choice;
+          this.selectBracketWinner(choice);
+        });
+      });
+      
+      // Update the round title
+      if (this.bracketRoundTitle) {
+        this.bracketRoundTitle.textContent = `Round ${this.currentRound}`;
       }
       
-      const rankingType = this.currentPlaylist.rankingType || 'ranked-choice';
-      let voteData;
+      // Update the progress
+      if (this.bracketProgress) {
+        const totalRounds = this.calculateTotalRounds(this.items.length);
+        const matchNumber = this.getCurrentMatchNumber();
+        const totalMatches = this.getTotalMatchesForRound(this.currentRound);
+        this.bracketProgress.innerHTML = `<span>Match ${matchNumber} of ${totalMatches} (Round ${this.currentRound}/${totalRounds})</span>`;
+      }
       
-      if (rankingType === 'ranked-choice') {
-        // Ensure we have all three selections
-        if (!this.selections.first || !this.selections.second || !this.selections.third) {
-          app.showMessage('Please select your top three songs before submitting');
-          return;
-        }
-        
-        const currentUser = authService.getCurrentUser();
-        
-        // Prepare vote data
-        voteData = {
-          playlistId: this.currentPlaylist.id,
-          userId: currentUser.uid,
-          displayName: currentUser.displayName || 'Anonymous',
-          photoURL: currentUser.photoURL || '',
-          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          votes: [
-            {
-              songId: this.selections.first.id,
-              rank: 1,
-              songTitle: this.selections.first.title
-            },
-            {
-              songId: this.selections.second.id,
-              rank: 2,
-              songTitle: this.selections.second.title
-            },
-            {
-              songId: this.selections.third.id,
-              rank: 3,
-              songTitle: this.selections.third.title
-            }
-          ]
+      // Update the bracket visualization
+      this.updateBracketVisualization();
+      
+      // Show admin controls if user is the playlist owner
+      this.showAdminControlsIfOwner();
+      
+      // Check if the current matchup has already been voted on
+      this.checkIfMatchupVoted(matchup);
+    } catch (error) {
+      console.error("Error displaying current matchup:", error);
+    }
+  }
+  
+  // Get the current bracket matchup
+  async getCurrentBracketMatchup() {
+    console.log(`Getting matchup for round ${this.currentRound}, matchup index ${this.currentMatchupIndex}`);
+    
+    // If we're at the beginning of the tournament, create matchups from the items
+    if (this.currentRound === 1) {
+      // Initialize currentMatchupIndex if it doesn't exist
+      if (this.currentMatchupIndex === undefined) {
+        this.currentMatchupIndex = 0;
+      }
+      
+      // Calculate the indices for the current matchup
+      const indexA = this.currentMatchupIndex * 2;
+      const indexB = indexA + 1;
+      
+      console.log(`Round 1 matchup: indexA: ${indexA}, indexB: ${indexB}`);
+      
+      // Make sure we have valid indices
+      if (indexA < this.items.length && indexB < this.items.length) {
+        return {
+          songA: this.items[indexA],
+          songB: this.items[indexB],
+          round: this.currentRound,
+          matchNumber: this.currentMatchupIndex + 1
         };
-      } else if (rankingType === 'star-rating') {
-        // Check if any songs have been rated
-        const ratedSongs = this.items.filter(song => this.starRatings[song.id] > 0);
+      } else {
+        console.error(`Invalid indices for matchup: ${indexA}, ${indexB}`);
+      }
+    } else {
+      // For later rounds, we need to get the winners from the previous round
+      const previousRound = this.currentRound - 1;
+      
+      // Get the winners from the previous round
+      let previousRoundWinners = [];
+      
+      try {
+        // First check if we have cached winners
+        if (this.bracketWinners && this.bracketWinners[previousRound]) {
+          previousRoundWinners = this.bracketWinners[previousRound];
+          console.log(`Using cached winners for round ${previousRound}:`, previousRoundWinners);
+        } else {
+          // If not, calculate the winners from the votes
+          previousRoundWinners = await this.calculateRoundWinners(previousRound);
+          
+          // Cache the winners for future use
+          if (!this.bracketWinners) {
+            this.bracketWinners = {};
+          }
+          this.bracketWinners[previousRound] = previousRoundWinners;
+          
+          console.log(`Calculated winners for round ${previousRound}:`, previousRoundWinners);
+        }
         
-        if (ratedSongs.length === 0) {
-          app.showMessage('Please rate at least one song before submitting');
+        // Make sure we have winners
+        if (!previousRoundWinners || previousRoundWinners.length === 0) {
+          console.error(`No winners found for round ${previousRound}`);
+          throw new Error(`No winners found for round ${previousRound}`);
+        }
+        
+        // Calculate the indices for the current matchup
+        const indexA = this.currentMatchupIndex * 2;
+        const indexB = indexA + 1;
+        
+        console.log(`Round ${this.currentRound} matchup: indexA: ${indexA}, indexB: ${indexB}, total winners: ${previousRoundWinners.length}`);
+        
+        // Make sure we have valid indices
+        if (indexA < previousRoundWinners.length && indexB < previousRoundWinners.length) {
+          // Find the songs in the items array
+          const songA = this.items.find(song => song.id === previousRoundWinners[indexA].songId);
+          const songB = this.items.find(song => song.id === previousRoundWinners[indexB].songId);
+          
+          if (songA && songB) {
+            return {
+              songA: songA,
+              songB: songB,
+              round: this.currentRound,
+              matchNumber: this.currentMatchupIndex + 1
+            };
+          } else {
+            console.error(`Could not find songs for matchup: songA id: ${previousRoundWinners[indexA].songId}, songB id: ${previousRoundWinners[indexB].songId}`);
+            throw new Error("Could not find songs for matchup");
+          }
+        } else {
+          console.error(`Invalid indices for matchup: ${indexA}, ${indexB}, total winners: ${previousRoundWinners.length}`);
+          throw new Error("Invalid indices for matchup");
+        }
+      } catch (error) {
+        console.error(`Error getting matchup for round ${this.currentRound}:`, error);
+      }
+    }
+    
+    // If we can't determine the matchup, return a default
+    console.warn("Could not determine current matchup, returning default");
+    return {
+      songA: this.items[0],
+      songB: this.items[1],
+      round: this.currentRound,
+      matchNumber: 1
+    };
+  }
+  
+  // Get the current match number
+  getCurrentMatchNumber() {
+    // Return the current matchup index + 1 (to make it 1-based)
+    return this.currentMatchupIndex !== undefined ? this.currentMatchupIndex + 1 : 1;
+  }
+  
+  // Get the total number of matches for a round
+  getTotalMatchesForRound(round) {
+    // The number of matches in a round is half the number of participants in that round
+    const participantsInRound = this.items.length / Math.pow(2, round - 1);
+    return participantsInRound / 2;
+  }
+  
+  // Update the bracket visualization
+  updateBracketVisualization() {
+    if (!this.bracketVisualization) return;
+    
+    // Create a visual representation of the tournament bracket
+    let html = '<div class="bracket-grid">';
+    
+    // Calculate the total number of rounds
+    const totalRounds = this.calculateTotalRounds(this.items.length);
+    
+    // Generate each round
+    for (let round = 1; round <= totalRounds; round++) {
+      html += `<div class="bracket-round">
+        <h4>Round ${round}</h4>`;
+      
+      // Calculate the number of matches in this round
+      const matchesInRound = this.getTotalMatchesForRound(round);
+      
+      // Generate each match in the round
+      for (let match = 1; match <= matchesInRound; match++) {
+        // Determine if this is the current match
+        const isCurrentMatch = (round === this.currentRound && match === this.getCurrentMatchNumber());
+        
+        html += `<div class="bracket-match ${isCurrentMatch ? 'current-match' : ''}">
+          <div class="bracket-match-song">Song ${(match - 1) * 2 + 1}</div>
+          <div class="bracket-match-song">Song ${(match - 1) * 2 + 2}</div>
+        </div>`;
+      }
+      
+      html += '</div>';
+    }
+    
+    html += '</div>';
+    this.bracketVisualization.innerHTML = html;
+  }
+  
+  // Show admin controls if the user is the playlist owner
+  showAdminControlsIfOwner() {
+    if (!this.bracketAdminControls || !this.currentPlaylist) return;
+    
+    // Check if the current user is the playlist owner
+    const isOwner = authService.isLoggedIn() && 
+                    authService.getCurrentUser().uid === this.currentPlaylist.createdBy;
+    
+    if (isOwner) {
+      // Show the admin controls
+      this.bracketAdminControls.classList.remove('hidden');
+      
+      // Populate the round select dropdown
+      if (this.bracketRoundSelect) {
+        // Clear existing options
+        this.bracketRoundSelect.innerHTML = '';
+        
+        // Calculate the total number of rounds
+        const totalRounds = this.calculateTotalRounds(this.items.length);
+        
+        // Add options for each round
+        for (let i = 1; i <= totalRounds; i++) {
+          const option = document.createElement('option');
+          option.value = i;
+          option.textContent = `Round ${i}`;
+          
+          // Select the current round
+          if (i === this.currentRound) {
+            option.selected = true;
+          }
+          
+          this.bracketRoundSelect.appendChild(option);
+        }
+      }
+      
+      // Set the current deadline
+      if (this.bracketRoundDeadline && this.roundDeadline) {
+        // Format the date for the datetime-local input
+        const formattedDate = this.roundDeadline.toISOString().slice(0, 16);
+        this.bracketRoundDeadline.value = formattedDate;
+      }
+    } else {
+      // Hide the admin controls
+      this.bracketAdminControls.classList.add('hidden');
+    }
+  }
+  
+  // Select the winner of the current matchup
+  async selectBracketWinner(winner) {
+    console.log(`Winner selected: ${winner}`);
+    
+    try {
+      // Get the current matchup
+      const matchup = await this.getCurrentBracketMatchup();
+      if (!matchup) {
+        console.error("No matchup available");
+        return;
+      }
+      
+      // Determine the winning song
+      const winningSong = winner === 'left' ? matchup.songA : matchup.songB;
+      console.log("Winning song:", winningSong);
+      
+      // Highlight the selected song
+      const songs = document.querySelectorAll('.bracket-song');
+      songs.forEach(song => {
+        song.classList.remove('selected');
+        if (song.dataset.songId === winningSong.id) {
+          song.classList.add('selected');
+        }
+      });
+      
+      // Store the vote in the bracketVotes object
+      if (!this.bracketVotes[this.currentRound]) {
+        this.bracketVotes[this.currentRound] = {};
+      }
+      this.bracketVotes[this.currentRound][matchup.matchNumber] = {
+        songId: winningSong.id,
+        songTitle: winningSong.title
+      };
+      
+      console.log("Updated bracket votes:", this.bracketVotes);
+      
+      // Move to the next matchup after a short delay
+      setTimeout(async () => {
+        // Check if there are more matchups in the current round
+        if (this.hasMoreMatchupsInRound()) {
+          // Move to the next matchup in the current round
+          await this.moveToNextMatchup();
+        } else {
+          // All matchups in the current round have been voted on
+          app.showMessage("You've voted on all matchups in this round. Please submit your votes.");
+        }
+      }, 500);
+    } catch (error) {
+      console.error("Error selecting bracket winner:", error);
+    }
+  }
+  
+  // Submit all bracket votes to Firebase
+  async submitBracketVotes() {
+    if (!this.currentPlaylist || !authService.isLoggedIn()) {
+      app.showMessage("You must be logged in to submit votes.");
+      return;
+    }
+    
+    // Check if there are any votes to submit
+    if (!this.bracketVotes[this.currentRound] || Object.keys(this.bracketVotes[this.currentRound]).length === 0) {
+      app.showMessage("You haven't voted on any matchups yet.");
+      return;
+    }
+    
+    try {
+      app.showLoading();
+      
+      // Prepare vote data
+      const voteData = {
+        userId: authService.getCurrentUser().uid,
+        userName: authService.getCurrentUser().displayName || 'Anonymous',
+        playlistId: this.currentPlaylist.id,
+        createdAt: new Date(),
+        voteType: 'bracket',
+        round: this.currentRound,
+        votes: this.bracketVotes[this.currentRound]
+      };
+      
+      // Submit the votes to Firestore
+      await FirebaseService.submitBracketVotes(voteData);
+      
+      // Clear the votes for this round
+      this.bracketVotes[this.currentRound] = {};
+      
+      app.showMessage("Your votes have been submitted successfully!");
+      
+      // Reset the selected state of all songs
+      const songs = document.querySelectorAll('.bracket-song');
+      songs.forEach(song => {
+        song.classList.remove('selected');
+      });
+      
+      // Update the bracket visualization
+      this.updateBracketVisualization();
+      
+    } catch (error) {
+      console.error("Error submitting bracket votes:", error);
+      app.showMessage(`Error: ${error.message}`);
+    } finally {
+      app.hideLoading();
+    }
+  }
+  
+  // Check if there are more matchups in the current round
+  hasMoreMatchupsInRound() {
+    // Get the total number of matchups in the current round
+    const totalMatchups = this.getTotalMatchesForRound(this.currentRound);
+    
+    // Get the current matchup number
+    const currentMatchup = this.getCurrentMatchNumber();
+    
+    // Check if there are more matchups
+    return currentMatchup < totalMatchups;
+  }
+  
+  // Move to the next matchup in the current round
+  async moveToNextMatchup() {
+    // Increment the current matchup index
+    if (!this.currentMatchupIndex) {
+      this.currentMatchupIndex = 0;
+    }
+    this.currentMatchupIndex++;
+    
+    // Display the next matchup
+    await this.displayCurrentMatchup();
+  }
+  
+  // Show the final winner of the tournament
+  showFinalWinner() {
+    // Get the final winner
+    const finalWinner = this.getFinalWinner();
+    
+    if (finalWinner) {
+      // Show a message with the final winner
+      app.showMessage(`The winner of the tournament is: ${finalWinner.title}!`);
+      
+      // Redirect back to the playlist page
+      setTimeout(() => {
+        if (this.currentPlaylist && this.currentPlaylist.id) {
+          playlistManager.viewPlaylist(this.currentPlaylist.id);
+        } else {
+          app.navigateTo('dashboard-section');
+        }
+      }, 3000);
+    }
+  }
+  
+  // Get the final winner of the tournament
+  getFinalWinner() {
+    // For now, just return the last winner in the bracketWinners array
+    if (this.bracketWinners && this.bracketWinners.length > 0) {
+      const lastWinner = this.bracketWinners[this.bracketWinners.length - 1];
+      
+      // Find the song in the items array
+      return this.items.find(song => song.id === lastWinner.songId);
+    }
+    
+    return null;
+  }
+  
+  // Update the bracket round (admin function)
+  async updateBracketRound() {
+    if (!this.bracketRoundSelect || !this.bracketRoundDeadline) return;
+    
+    try {
+      app.showLoading();
+      
+      // Get the selected round
+      const selectedRound = parseInt(this.bracketRoundSelect.value);
+      
+      // Get the round deadline
+      const deadlineValue = this.bracketRoundDeadline.value;
+      const deadline = deadlineValue ? new Date(deadlineValue) : null;
+      
+      // Verify that the current user is the playlist owner
+      if (!this.currentPlaylist || this.currentPlaylist.createdBy !== authService.getCurrentUser().uid) {
+        app.showMessage("Only the playlist owner can update the round.");
+        return;
+      }
+      
+      // If moving to a new round, calculate the winners from the previous round's votes
+      if (selectedRound > this.currentRound) {
+        // Check if there are any ties in the current round
+        const hasTies = await this.checkForTies();
+        
+        if (hasTies) {
+          app.showMessage("There are ties in the current round. All ties must be resolved before moving to the next round.");
+          app.hideLoading();
           return;
         }
         
-        // Format star ratings for submission
-        const starVotes = [];
-        this.items.forEach(song => {
-          if (this.starRatings[song.id]) {
-            starVotes.push({
-              songId: song.id,
-              rating: this.starRatings[song.id],
-              songTitle: song.title
+        // Calculate the winners from the previous round's votes
+        const winners = await this.calculateRoundWinners(this.currentRound);
+        
+        if (!winners || winners.length === 0) {
+          app.showMessage("No votes have been submitted for the current round yet.");
+          app.hideLoading();
+          return;
+        }
+        
+        // Store the winners in the bracket structure
+        this.bracketWinners[this.currentRound] = winners;
+        console.log(`Winners for round ${this.currentRound}:`, winners);
+      }
+      
+      // Update the current round
+      this.currentRound = selectedRound;
+      
+      // Reset the current matchup index for the new round
+      this.currentMatchupIndex = 0;
+      
+      // Save the current round to Firebase
+      await this.saveCurrentRound();
+      
+      // Display the first matchup of the new round
+      await this.displayCurrentMatchup();
+      
+      // Update the bracket visualization
+      this.updateBracketVisualization();
+      
+      app.showMessage(`Round updated to ${selectedRound}`);
+    } catch (error) {
+      console.error("Error updating bracket round:", error);
+      app.showMessage(`Error: ${error.message}`);
+    } finally {
+      app.hideLoading();
+    }
+  }
+  
+  // Calculate the winners from a round's votes
+  async calculateRoundWinners(round) {
+    try {
+      // Get all votes for the current playlist
+      const votes = await FirebaseService.getPlaylistVotes(this.currentPlaylist.id);
+      
+      // Filter votes for the specified round
+      const roundVotes = votes.filter(vote => 
+        vote.voteType === 'bracket' && 
+        vote.round === round
+      );
+      
+      if (roundVotes.length === 0) {
+        console.log(`No votes found for round ${round}`);
+        return [];
+      }
+      
+      // Group votes by matchup
+      const matchupVotes = {};
+      roundVotes.forEach(vote => {
+        if (!vote.votes) return;
+        
+        Object.entries(vote.votes).forEach(([matchNumber, songData]) => {
+          const matchKey = matchNumber;
+          
+          if (!matchupVotes[matchKey]) {
+            matchupVotes[matchKey] = {
+              songVotes: {}
+            };
+          }
+          
+          const songId = songData.songId;
+          if (!matchupVotes[matchKey].songVotes[songId]) {
+            matchupVotes[matchKey].songVotes[songId] = 0;
+          }
+          
+          matchupVotes[matchKey].songVotes[songId]++;
+        });
+      });
+      
+      // Determine the winner for each matchup
+      const winners = [];
+      Object.entries(matchupVotes).forEach(([matchKey, data]) => {
+        const songVotes = data.songVotes;
+        const songIds = Object.keys(songVotes);
+        
+        if (songIds.length > 0) {
+          // Sort songs by vote count
+          songIds.sort((a, b) => songVotes[b] - songVotes[a]);
+          
+          // Get the winning song
+          const winningSongId = songIds[0];
+          
+          // Find the song in the items array
+          const winningSong = this.items.find(song => song.id === winningSongId);
+          
+          if (winningSong) {
+            winners.push({
+              matchNumber: parseInt(matchKey),
+              songId: winningSongId,
+              songTitle: winningSong.title
             });
           }
-        });
+        }
+      });
+      
+      // Sort winners by match number
+      winners.sort((a, b) => a.matchNumber - b.matchNumber);
+      
+      return winners;
+    } catch (error) {
+      console.error(`Error calculating winners for round ${round}:`, error);
+      return [];
+    }
+  }
+  
+  // Save the current round to Firebase
+  async saveCurrentRound() {
+    if (!this.currentPlaylist || !this.currentPlaylist.id) return;
+    
+    try {
+      // Update the playlist document with the current round
+      await FirebaseService.updatePlaylistBracketRound(
+        this.currentPlaylist.id,
+        this.currentRound,
+        this.roundDeadline ? this.roundDeadline.toISOString() : null
+      );
+      
+      console.log(`Current round ${this.currentRound} saved to Firebase`);
+    } catch (error) {
+      console.error('Error saving current round:', error);
+    }
+  }
+  
+  // Load the current round from Firebase
+  async loadCurrentRound() {
+    if (!this.currentPlaylist || !this.currentPlaylist.id) return;
+    
+    try {
+      // Get the playlist from Firebase
+      const playlist = await FirebaseService.getPlaylist(this.currentPlaylist.id);
+      
+      if (playlist && playlist.bracketCurrentRound) {
+        // Update the current round
+        this.currentRound = playlist.bracketCurrentRound;
+        console.log(`Loaded current round ${this.currentRound} from Firebase`);
         
-        voteData = {
-          userId: authService.getCurrentUser().uid,
-          userName: authService.getCurrentUser().displayName || 'Anonymous',
-          playlistId: this.currentPlaylist.id,
-          createdAt: new Date(),
-          voteType: 'star-rating',
-          starVotes: starVotes
-        };
-      }
-      
-      // Submit the vote to Firestore
-      await FirebaseService.submitVote(voteData);
-      
-      // Show success message and redirect back to the playlist page
-      app.hideLoading();
-      app.showMessage('Your vote has been submitted successfully!');
-      
-      // Return directly to the playlist page
-      if (this.currentPlaylist && this.currentPlaylist.id) {
-        playlistManager.viewPlaylist(this.currentPlaylist.id);
-      } else {
-        app.navigateTo('dashboard-section');
+        // Update the round deadline if available
+        if (playlist.bracketRoundDeadline) {
+          this.roundDeadline = new Date(playlist.bracketRoundDeadline);
+        }
       }
     } catch (error) {
-      console.error('Error submitting vote:', error);
-      app.hideLoading();
-      app.showMessage(`Error submitting vote: ${error.message}`);
+      console.error('Error loading current round:', error);
     }
   }
   
-  // Utility method to shuffle an array
-  shuffleArray(array) {
-    const newArray = [...array];
-    for (let i = newArray.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  // Calculate the total number of rounds based on the number of items
+  calculateTotalRounds(itemsLength) {
+    if (!itemsLength || itemsLength <= 0) {
+      return 0;
     }
-    return newArray;
+    // Calculate the total number of rounds using the formula: log2(n)
+    const totalRounds = Math.log2(itemsLength);
+    return Math.ceil(totalRounds);
   }
   
-  // Show the vote success screen
-  showVoteSuccess() {
-    // Navigate to the vote success section
-    app.navigateTo('vote-success-section', { id: this.currentPlaylist.id });
+  // Check if there's a tie in the current round
+  async checkForTies() {
+    if (!this.currentPlaylist || !this.currentPlaylist.id) return false;
     
-    // Update the vote results if needed
-    this.displayVoteResults();
+    try {
+      // Get all votes for the current playlist
+      const votes = await FirebaseService.getPlaylistVotes(this.currentPlaylist.id);
+      
+      // Filter votes for the current round
+      const roundVotes = votes.filter(vote => 
+        vote.voteType === 'bracket' && 
+        vote.round === this.currentRound
+      );
+      
+      // Group votes by matchup
+      const matchupVotes = {};
+      roundVotes.forEach(vote => {
+        const matchKey = `${vote.round}-${vote.matchNumber}`;
+        if (!matchupVotes[matchKey]) {
+          matchupVotes[matchKey] = {
+            songVotes: {}
+          };
+        }
+        
+        const songId = vote.winner.id;
+        if (!matchupVotes[matchKey].songVotes[songId]) {
+          matchupVotes[matchKey].songVotes[songId] = 0;
+        }
+        
+        matchupVotes[matchKey].songVotes[songId]++;
+      });
+      
+      // Check for ties in each matchup
+      let hasTies = false;
+      Object.keys(matchupVotes).forEach(matchKey => {
+        const songVotes = matchupVotes[matchKey].songVotes;
+        const songIds = Object.keys(songVotes);
+        
+        // If there are at least two songs with votes
+        if (songIds.length >= 2) {
+          // Sort songs by vote count
+          songIds.sort((a, b) => songVotes[b] - songVotes[a]);
+          
+          // Check if the top two songs have the same number of votes
+          if (songVotes[songIds[0]] === songVotes[songIds[1]]) {
+            hasTies = true;
+            console.log(`Tie detected in matchup ${matchKey}: ${songIds[0]} and ${songIds[1]} both have ${songVotes[songIds[0]]} votes`);
+          }
+        }
+      });
+      
+      return hasTies;
+    } catch (error) {
+      console.error('Error checking for ties:', error);
+      return false;
+    }
   }
   
-  // Display vote results on the success page
-  displayVoteResults() {
-    const voteResultsContainer = document.getElementById('vote-results');
-    if (!voteResultsContainer) return;
+  // Move to the next round if there are no ties
+  async moveToNextRound() {
+    // Check for ties before moving to the next round
+    const hasTies = await this.checkForTies();
     
-    // Clear any existing content
-    voteResultsContainer.innerHTML = '';
-    
-    // Add selected songs in order
-    if (this.selections.first) {
-      this.addVoteResultItem(voteResultsContainer, this.selections.first, '1st');
+    if (hasTies) {
+      // Show a message about the tie
+      app.showMessage('There are ties in the current round. All ties must be resolved before moving to the next round.');
+      return false;
     }
     
-    if (this.selections.second) {
-      this.addVoteResultItem(voteResultsContainer, this.selections.second, '2nd');
-    }
+    // No ties, proceed to the next round
+    this.currentRound++;
     
-    if (this.selections.third) {
-      this.addVoteResultItem(voteResultsContainer, this.selections.third, '3rd');
-    }
+    // Save the current round to Firebase
+    await this.saveCurrentRound();
     
-    // Set up back to playlist button
-    const backToPlaylistBtn = document.getElementById('back-to-playlist-btn');
-    if (backToPlaylistBtn && this.currentPlaylist) {
-      backToPlaylistBtn.onclick = () => playlistManager.viewPlaylist(this.currentPlaylist.id);
-    }
+    // Reset the current matchup index for the new round
+    this.currentMatchupIndex = 0;
+    
+    // Display the first matchup of the new round
+    await this.displayCurrentMatchup();
+    
+    return true;
   }
   
-  // Helper method to add a song result item
-  addVoteResultItem(container, song, rank) {
-    const resultItem = document.createElement('div');
-    resultItem.className = 'result-item';
+  // Check if the current matchup has already been voted on
+  checkIfMatchupVoted(matchup) {
+    if (!this.bracketVotes || !this.bracketVotes[this.currentRound]) return;
     
-    resultItem.innerHTML = `
-      <div class="result-rank">${rank}</div>
-      <div class="song-result">
-        <div class="song-thumbnail">
-          <img src="${song.coverImage || 'images/default-thumbnail.jpg'}" alt="${song.title}">
-        </div>
-        <div class="song-info">
-          <h4>${song.title}</h4>
-          <p>${song.artist || 'Unknown Artist'}</p>
-        </div>
-      </div>
-    `;
+    const vote = this.bracketVotes[this.currentRound][matchup.matchNumber];
+    if (!vote) return;
     
-    container.appendChild(resultItem);
-  }
-
-  // Start a countdown timer
-  startCountdown(deadline) {
-    const countdownElement = document.getElementById('voting-countdown');
-    const updateCountdown = () => {
-      const now = new Date();
-      const timeLeft = deadline - now;
-
-      if (timeLeft <= 0) {
-        clearInterval(intervalId);
-        countdownElement.textContent = 'Voting has ended.';
-        if (this.voteButton) this.voteButton.disabled = true;
-        return;
+    // Highlight the selected song
+    const songs = document.querySelectorAll('.bracket-song');
+    songs.forEach(song => {
+      song.classList.remove('selected');
+      if (song.dataset.songId === vote.songId) {
+        song.classList.add('selected');
       }
-
-      const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-
-      countdownElement.textContent = `Time left: ${hours}h ${minutes}m ${seconds}s`;
-    };
-
-    updateCountdown();
-    const intervalId = setInterval(updateCountdown, 1000);
-  }
-  
-  // Add methods for star rating
-  displayCurrentSong() {
-    if (!this.items || this.items.length === 0 || !this.songCard) return;
-    
-    const song = this.items[this.currentSongIndex];
-    const totalSongs = this.items.length;
-    const currentRating = this.starRatings[song.id] || 0;
-    
-    // Create the Suno URL for the song
-    const sunoUrl = song.sunoUrl || `https://suno.com/song/${song.id}`;
-    
-    // Update song card
-    this.songCard.innerHTML = `
-      <img src="${song.coverImage || 'assets/default-cover.png'}" alt="${song.title}" class="song-card-image">
-      <div class="song-card-content">
-        <h3 class="song-card-title">
-          <a href="${sunoUrl}" target="_blank" rel="noopener noreferrer">${song.title}</a>
-        </h3>
-        <div class="song-card-author">
-          <img src="${song.authorAvatar || 'assets/default-avatar.png'}" alt="${song.author}" class="author-avatar">
-          <span>${song.author}</span>
-        </div>
-        <div class="star-selector" data-song-id="${song.id}">
-          ${this.generateStars(currentRating)}
-        </div>
-        <div class="song-progress">
-          <span>Song ${this.currentSongIndex + 1} of ${totalSongs}</span>
-          <span>${this.getCompletionStatus()}</span>
-        </div>
-      </div>
-    `;
-    
-    // Attach click handlers to stars
-    const stars = this.songCard.querySelectorAll('.star');
-    stars.forEach((star, index) => {
-      star.addEventListener('click', () => this.setRating(song.id, index + 1));
     });
-    
-    // Enable/disable navigation buttons
-    if (this.prevSongBtn) this.prevSongBtn.disabled = this.currentSongIndex === 0;
-    if (this.nextSongBtn) this.nextSongBtn.disabled = this.currentSongIndex === totalSongs - 1;
-    if (this.submitStarRatingBtn) this.submitStarRatingBtn.disabled = !this.hasAnyRatings();
   }
   
-  generateStars(rating) {
-    let starsHtml = '';
-    for (let i = 1; i <= 5; i++) {
-      starsHtml += `<span class="star ${i <= rating ? 'selected' : ''}" data-value="${i}">★</span>`;
-    }
-    return starsHtml;
-  }
-  
-  setRating(songId, rating) {
-    console.log(`Setting rating for song ${songId} to ${rating}`);
-    this.starRatings[songId] = rating;
-    
-    // Update UI to show selected stars
-    const stars = document.querySelectorAll(`.star-selector[data-song-id="${songId}"] .star`);
-    stars.forEach((star, index) => {
-      star.classList.toggle('selected', index < rating);
-    });
-    
-    // Enable submit button as long as at least one song is rated
-    const hasRatings = this.hasAnyRatings();
-    console.log(`Has any ratings? ${hasRatings}`);
-    if (this.submitStarRatingBtn) {
-      console.log(`Updating submit button disabled state to: ${!hasRatings}`);
-      this.submitStarRatingBtn.disabled = !hasRatings;
-    } else {
-      console.error('Submit button element not found');
-    }
-  }
-  
-  isStarRatingComplete() {
-    // Check if all songs have a rating
-    const allRated = this.items.every(song => this.starRatings[song.id] > 0);
-    console.log('Current ratings:', this.starRatings);
-    console.log(`Songs rated: ${Object.keys(this.starRatings).length}/${this.items.length}`);
-    return allRated;
-  }
-  
-  hasAnyRatings() {
-    // Check if at least one song has a rating
-    return this.items.some(song => this.starRatings[song.id] > 0);
-  }
-  
-  getCompletionStatus() {
-    // Count songs that have a rating greater than 0
-    const rated = this.items.filter(song => this.starRatings[song.id] > 0).length;
-    const total = this.items.length;
-    return `${rated}/${total} songs rated`;
-  }
-  
-  nextSong() {
-    if (this.currentSongIndex < this.items.length - 1) {
-      this.currentSongIndex++;
-      this.displayCurrentSong();
-    }
-  }
-  
-  previousSong() {
-    if (this.currentSongIndex > 0) {
-      this.currentSongIndex--;
-      this.displayCurrentSong();
-    }
-  }
+  // ... rest of the code remains the same ...
 }
 
 // Initialize Voting Manager

@@ -124,6 +124,10 @@
                                 <input type="radio" name="ranking-type" value="star-rating">
                                 Star Rating (1-5 stars per song)
                             </label>
+                            <label class="radio-label">
+                                <input type="radio" name="ranking-type" value="bracket">
+                                Bracket Tournament (2, 4, 8, 16, or 32 songs)
+                            </label>
                         </div>
                         <p class="help-text">Choose how users will vote on songs.</p>
                     </div>
@@ -250,7 +254,54 @@
                     </div>
                     <div id="voting-countdown" class="countdown"></div>
                     
-                    <!-- Add this within the voting section after the ranked choice container -->
+                    <!-- Improved bracket tournament container -->
+                    <div id="bracket-container" class="bracket-container hidden">
+                        <div class="bracket-header">
+                            <h3 id="bracket-round-title">Round 1</h3>
+                            <div id="bracket-progress" class="bracket-progress">
+                                <span>Match 1 of 4</span>
+                            </div>
+                        </div>
+                        
+                        <div id="bracket-matchup" class="bracket-matchup">
+                            <!-- Current matchup will be displayed here -->
+                        </div>
+                        
+                        <div class="bracket-navigation">
+                            <button id="bracket-choice-left-btn" class="primary-btn">Choose Left</button>
+                            <button id="bracket-choice-right-btn" class="primary-btn">Choose Right</button>
+                        </div>
+                        
+                        <div class="bracket-submit-votes">
+                            <button id="bracket-submit-votes-btn" class="primary-btn">Submit All Votes</button>
+                        </div>
+                        
+                        <!-- Bracket visualization -->
+                        <div class="bracket-controls">
+                            <h4>Tournament Progress</h4>
+                            <div id="bracket-visualization" class="bracket-visualization">
+                                <!-- Visual representation of the tournament bracket -->
+                            </div>
+                        </div>
+                        
+                        <!-- Admin controls (only visible to playlist owner) -->
+                        <div id="bracket-admin-controls" class="bracket-admin-controls hidden">
+                            <h4>Admin Controls</h4>
+                            <div class="form-group">
+                                <label for="bracket-round-select">Current Round:</label>
+                                <select id="bracket-round-select" class="form-control">
+                                    <!-- Round options will be populated dynamically -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="bracket-voting-deadline">Round Deadline:</label>
+                                <input type="datetime-local" id="bracket-round-deadline" class="form-control">
+                            </div>
+                            <button id="bracket-update-round-btn" class="primary-btn">Update Round</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Star rating container -->
                     <div id="star-rating-container" class="star-rating-container hidden">
                         <div id="song-card" class="song-card">
                             <!-- Song card content will be loaded dynamically -->

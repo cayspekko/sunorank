@@ -573,94 +573,449 @@ class PlaylistManager {
 
   displayRankings(votes) {
     if (!this.currentPlaylist) return;
-
-    const rankings = FirebaseService.calculateRankings(this.currentPlaylist.items, votes);
-    const rankingType = this.currentPlaylist.rankingType || 'ranked-choice';
     
+    const rankingType = this.currentPlaylist.rankingType || 'ranked-choice';
     this.currentRanking.innerHTML = '';
 
     if (votes.length === 0) {
         this.currentRanking.innerHTML = '<p>No votes yet. Be the first to vote!</p>';
         return;
     }
-
-    // Check if there are any star rating votes
-    const hasStarRatings = votes.some(vote => vote.voteType === 'star-rating');
-
-    rankings.forEach((ranking, index) => {
-        const item = ranking.itemObject;
-        const rankingElement = document.createElement('div');
-        rankingElement.className = 'ranking-item';
+    
+    // Handle different ranking types
+    if (rankingType === 'bracket') {
+        this.displayBracketTournament(votes);
+    } else {
+        // For ranked-choice and star-rating
+        const rankings = FirebaseService.calculateRankings(this.currentPlaylist.items, votes);
         
-        if (item && typeof item === 'object') {
-            let statsHtml = '';
+        // Check if there are any star rating votes
+        const hasStarRatings = votes.some(vote => vote.voteType === 'star-rating');
+
+        rankings.forEach((ranking, index) => {
+            const item = ranking.itemObject;
+            const rankingElement = document.createElement('div');
+            rankingElement.className = 'ranking-item';
             
-            if (hasStarRatings || rankingType === 'star-rating') {
-                // Star rating display
-                const avgRating = ranking.starRatingAvg || 0;
-                const voteCount = ranking.starRatingCount || 0;
+            if (item && typeof item === 'object') {
+                let statsHtml = '';
                 
-                statsHtml = `
-                    <p>
-                        <span class="star-results">
-                            ${this.generateStarDisplay(avgRating)}
-                            <span class="star-average">${avgRating.toFixed(1)}</span>
-                        </span>
-                        • ${voteCount} ${voteCount === 1 ? 'rating' : 'ratings'}
-                    </p>
+                if (hasStarRatings || rankingType === 'star-rating') {
+                    // Star rating display
+                    const avgRating = ranking.starRatingAvg || 0;
+                    const voteCount = ranking.starRatingCount || 0;
+                    
+                    statsHtml = `
+                        <p>
+                            <span class="star-results">
+                                ${this.generateStarDisplay(avgRating)}
+                                <span class="star-average">${avgRating.toFixed(1)}</span>
+                            </span>
+                            • ${voteCount} ${voteCount === 1 ? 'rating' : 'ratings'}
+                        </p>
+                    `;
+                } else {
+                    // Ranked choice display (existing)
+                    statsHtml = `
+                        <p><span class="score">${ranking.points} points</span> • 
+                           ${ranking.firstPlace} first place, 
+                           ${ranking.secondPlace} second place, 
+                           ${ranking.thirdPlace} third place votes</p>
+                    `;
+                }
+                
+                // Enhanced display for Suno songs
+                rankingElement.innerHTML = `
+                    <div class="ranking-position">${index + 1}</div>
+                    <div class="song-thumbnail">
+                        <img src="${item.coverImage || 'assets/default-cover.png'}" alt="${item.title} cover">
+                    </div>
+                    <div class="ranking-info">
+                        <h3><a href="${item.sunoUrl}" target="_blank">${item.title}</a></h3>
+                        <div class="song-author">
+                            <img src="${item.authorAvatar || 'assets/default-avatar.png'}" alt="${item.author}" class="author-avatar">
+                            <span>${item.author}</span>
+                        </div>
+                        ${statsHtml}
+                    </div>
                 `;
             } else {
-                // Ranked choice display (existing)
-                statsHtml = `
-                    <p><span class="score">${ranking.points} points</span> • 
-                       ${ranking.firstPlace} first place, 
-                       ${ranking.secondPlace} second place, 
-                       ${ranking.thirdPlace} third place votes</p>
-                `;
+                // Fallback for simple text items
+                // ...existing fallback code...
             }
             
-            // Enhanced display for Suno songs
-            rankingElement.innerHTML = `
-                <div class="ranking-position">${index + 1}</div>
-                <div class="song-thumbnail">
-                    <img src="${item.coverImage || 'assets/default-cover.png'}" alt="${item.title} cover">
-                </div>
-                <div class="ranking-info">
-                    <h3><a href="${item.sunoUrl}" target="_blank">${item.title}</a></h3>
-                    <div class="song-author">
-                        <img src="${item.authorAvatar || 'assets/default-avatar.png'}" alt="${item.author}" class="author-avatar">
-                        <span>${item.author}</span>
-                    </div>
-                    ${statsHtml}
-                </div>
-            `;
+            this.currentRanking.appendChild(rankingElement);
+        });
+    }
+  }
+  
+  // Display bracket tournament on the rankings page
+  async displayBracketTournament(votes) {
+    try {
+      // Get the current round from the playlist
+      const currentRound = this.currentPlaylist.bracketCurrentRound || 1;
+      const totalRounds = Math.log2(this.currentPlaylist.items.length);
+      
+      // Create a container for the bracket visualization
+      const bracketContainer = document.createElement('div');
+      bracketContainer.className = 'bracket-tournament-display';
+      
+      // Add tournament header
+      bracketContainer.innerHTML = `
+        <div class="bracket-tournament-header">
+          <h3>Tournament Progress</h3>
+          <p>Current Round: ${currentRound} of ${totalRounds}</p>
+        </div>
+      `;
+      
+      // Process votes to determine winners for each round
+      const roundWinners = await this.processRoundWinners(votes);
+      
+      // Constants for layout
+      const MATCHUP_HEIGHT = 60;
+      const MATCHUP_CENTER = MATCHUP_HEIGHT / 2;
+      const ROUND_WIDTH = 220;
+      const ROUND_SPACING = 60;
+      const FIRST_ROUND_SPACING = 90; // Increased for clarity
+      const HEADER_OFFSET = 60; // Substantially increased for proper alignment
+      
+      // Create the bracket structure
+      const bracketEl = document.createElement('div');
+      bracketEl.className = 'bracket';
+      
+      // Calculate total number of matchups in the first round
+      const totalMatchups = this.currentPlaylist.items.length / 2;
+      
+      // Determine the layout structure first with improved spacing
+      const matchupPositions = {};
+      
+      // For each round, determine the ideal positions of each matchup
+      for (let round = 1; round <= totalRounds; round++) {
+        matchupPositions[round] = [];
+        const matchupsInRound = totalMatchups / Math.pow(2, round - 1);
+        
+        if (round === 1) {
+          // First round has evenly spaced matchups
+          for (let i = 0; i < matchupsInRound; i++) {
+            matchupPositions[round].push({
+              index: i,
+              position: i * FIRST_ROUND_SPACING
+            });
+          }
         } else {
-            // Fallback for simple text items
-            // ...existing fallback code...
+          // Later rounds position matchups between their "children" from previous round
+          for (let i = 0; i < matchupsInRound; i++) {
+            const prevRoundIndex1 = i * 2;
+            const prevRoundIndex2 = prevRoundIndex1 + 1;
+            
+            // Get positions of the two matchups from previous round
+            const pos1 = matchupPositions[round - 1][prevRoundIndex1].position;
+            const pos2 = matchupPositions[round - 1][prevRoundIndex2].position;
+            
+            // Position this matchup halfway between the two from previous round
+            matchupPositions[round].push({
+              index: i,
+              position: (pos1 + pos2) / 2
+            });
+          }
+        }
+      }
+      
+      // Determine the total height needed plus padding
+      const totalHeight = matchupPositions[1][matchupPositions[1].length - 1].position + HEADER_OFFSET + 120;
+      bracketEl.style.height = `${totalHeight}px`;
+      
+      // Create connector container first (so connectors are behind matchups)
+      const connectorsEl = document.createElement('div');
+      connectorsEl.className = 'bracket-connectors';
+      connectorsEl.style.position = 'absolute';
+      connectorsEl.style.top = '0';
+      connectorsEl.style.left = '0';
+      connectorsEl.style.width = '100%';
+      connectorsEl.style.height = '100%';
+      connectorsEl.style.pointerEvents = 'none';
+      bracketEl.appendChild(connectorsEl);
+      
+      // Now create the rounds based on calculated positions
+      for (let round = 1; round <= totalRounds; round++) {
+        const roundEl = document.createElement('div');
+        roundEl.className = `round round-${round} ${round === currentRound ? 'current-round' : ''}`;
+        roundEl.style.left = `${(round - 1) * (ROUND_WIDTH + ROUND_SPACING)}px`;
+        
+        // Add round header
+        const roundHeader = document.createElement('div');
+        roundHeader.className = 'round-header';
+        roundHeader.textContent = `Round ${round}`;
+        roundEl.appendChild(roundHeader);
+        
+        // Number of matchups in this round
+        const matchupsInRound = totalMatchups / Math.pow(2, round - 1);
+        
+        // Create matchups
+        for (let i = 0; i < matchupsInRound; i++) {
+          const matchupPosition = matchupPositions[round][i].position;
+          
+          const matchupEl = document.createElement('div');
+          matchupEl.className = 'matchup';
+          matchupEl.dataset.round = round;
+          matchupEl.dataset.match = i + 1;
+          matchupEl.style.position = 'absolute';
+          matchupEl.style.top = `${matchupPosition + HEADER_OFFSET}px`;
+          matchupEl.style.width = `${ROUND_WIDTH}px`;
+          
+          if (round === 1) {
+            // First round matchups are from the original items
+            const songA = this.currentPlaylist.items[i * 2];
+            const songB = this.currentPlaylist.items[i * 2 + 1];
+            
+            // Check if there's a winner for this matchup
+            const winner = roundWinners[round] ? roundWinners[round].find(w => w.matchNumber === i + 1) : null;
+            
+            if (songA && songB) {
+              matchupEl.innerHTML = this.createMatchupHTML(songA, songB, winner);
+            }
+          } else {
+            // Later rounds use winners from previous rounds
+            if (roundWinners[round - 1]) {
+              const previousRoundWinners = roundWinners[round - 1];
+              
+              // Get the two winners from the previous round that will face each other
+              const indexA = i * 2;
+              const indexB = indexA + 1;
+              
+              if (indexA < previousRoundWinners.length && indexB < previousRoundWinners.length) {
+                const songAId = previousRoundWinners[indexA].songId;
+                const songBId = previousRoundWinners[indexB].songId;
+                
+                // Find the songs in the items array
+                const songA = this.currentPlaylist.items.find(item => item.id === songAId);
+                const songB = this.currentPlaylist.items.find(item => item.id === songBId);
+                
+                // Check if there's a winner for this matchup
+                const winner = roundWinners[round] ? roundWinners[round].find(w => w.matchNumber === i + 1) : null;
+                
+                if (songA && songB) {
+                  matchupEl.innerHTML = this.createMatchupHTML(songA, songB, winner);
+                }
+              } else {
+                matchupEl.innerHTML = `<div class="matchup-empty">TBD</div>`;
+              }
+            } else {
+              matchupEl.innerHTML = `<div class="matchup-empty">TBD</div>`;
+            }
+          }
+          
+          roundEl.appendChild(matchupEl);
         }
         
-        this.currentRanking.appendChild(rankingElement);
-    });
-}
+        bracketEl.appendChild(roundEl);
+      }
+      
+      // Add the bracket connector lines
+      for (let round = 2; round <= totalRounds; round++) {
+        const matchupsInRound = totalMatchups / Math.pow(2, round - 1);
+        
+        for (let i = 0; i < matchupsInRound; i++) {
+          // Get current matchup position
+          const currentPos = matchupPositions[round][i].position;
+          
+          // Get positions from previous round
+          const prevRoundIndex1 = i * 2;
+          const prevRoundIndex2 = prevRoundIndex1 + 1;
+          
+          if (prevRoundIndex2 < matchupPositions[round - 1].length) {
+            const prevPos1 = matchupPositions[round - 1][prevRoundIndex1].position;
+            const prevPos2 = matchupPositions[round - 1][prevRoundIndex2].position;
+            
+            // Calculate centers of matchups - substantial vertical adjustment
+            const currentCenter = currentPos + MATCHUP_CENTER + HEADER_OFFSET + 50;
+            const prevCenter1 = prevPos1 + MATCHUP_CENTER + HEADER_OFFSET + 50; 
+            const prevCenter2 = prevPos2 + MATCHUP_CENTER + HEADER_OFFSET + 50; 
+            
+            // Calculate positions for connector lines
+            const prevRoundRight = (round - 2) * (ROUND_WIDTH + ROUND_SPACING) + ROUND_WIDTH;
+            const currentRoundLeft = (round - 1) * (ROUND_WIDTH + ROUND_SPACING);
+            const connectorMiddle = prevRoundRight + ROUND_SPACING / 2;
+            
+            // Horizontal connectors from previous matchups
+            this.createConnector(connectorsEl, 'horizontal', prevCenter1, prevRoundRight, connectorMiddle - prevRoundRight, 2);
+            this.createConnector(connectorsEl, 'horizontal', prevCenter2, prevRoundRight, connectorMiddle - prevRoundRight, 2);
+            
+            // Vertical connector between the two horizontal lines
+            this.createConnector(connectorsEl, 'vertical', Math.min(prevCenter1, prevCenter2), connectorMiddle - 1, 2, Math.abs(prevCenter2 - prevCenter1));
+            
+            // Horizontal connector to current matchup
+            this.createConnector(connectorsEl, 'horizontal', currentCenter, connectorMiddle, currentRoundLeft - connectorMiddle, 2);
+          }
+        }
+      }
+      
+      bracketContainer.appendChild(bracketEl);
+      this.currentRanking.appendChild(bracketContainer);
+      
+      // If we have a final winner, display it prominently at the top
+      if (roundWinners[totalRounds] && roundWinners[totalRounds].length > 0) {
+        const finalWinnerId = roundWinners[totalRounds][0].songId;
+        const finalWinner = this.currentPlaylist.items.find(item => item.id === finalWinnerId);
+        
+        if (finalWinner) {
+          const winnerElement = document.createElement('div');
+          winnerElement.className = 'bracket-final-winner';
+          winnerElement.innerHTML = `
+            <h3>Tournament Winner</h3>
+            <div class="winner-display">
+              <div class="winner-thumbnail">
+                <img src="${finalWinner.coverImage || 'assets/default-cover.png'}" alt="${finalWinner.title} cover">
+              </div>
+              <div class="winner-info">
+                <h2>${finalWinner.title}</h2>
+                <p>by ${finalWinner.author || 'Unknown'}</p>
+              </div>
+            </div>
+          `;
+          
+          // Insert the winner at the top of the ranking display
+          this.currentRanking.insertBefore(winnerElement, this.currentRanking.firstChild);
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error displaying bracket tournament:', error);
+      this.currentRanking.innerHTML = '<p>Error displaying tournament bracket. Please try again later.</p>';
+    }
+  }
+  
+  // Helper method to create a connector line element
+  createConnector(parent, type, top, left, width, height) {
+    const connector = document.createElement('div');
+    connector.className = `connector ${type}`;
+    connector.style.position = 'absolute';
+    
+    // Add additional vertical adjustment for better alignment
+    if (type === 'horizontal') {
+      top += 1; // Fine-tune horizontal connectors vertically
+    } else if (type === 'vertical') {
+      // For vertical connectors, we may need different adjustments
+      left += 1; // Fine-tune horizontal position of vertical connectors
+    }
+    
+    connector.style.top = `${top}px`;
+    connector.style.left = `${left}px`;
+    connector.style.width = `${width}px`;
+    connector.style.height = `${height}px`;
+    parent.appendChild(connector);
+    return connector;
+  }
 
-// Helper method to generate star display for results
-generateStarDisplay(rating) {
-    let html = '';
-    // Full stars
-    for (let i = 1; i <= Math.floor(rating); i++) {
-        html += '<span class="star selected">★</span>';
+  // Create HTML for a matchup
+  createMatchupHTML(songA, songB, winner) {
+    const songAWinner = winner && winner.songId === songA.id;
+    const songBWinner = winner && winner.songId === songB.id;
+    
+    // Truncate long titles to prevent layout issues
+    const truncateText = (text, maxLength = 22) => {
+      if (!text) return '';
+      return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+    };
+    
+    const songATitle = truncateText(songA.title);
+    const songBTitle = truncateText(songB.title);
+    const songAAuthor = truncateText(songA.author || 'Unknown', 18);
+    const songBAuthor = truncateText(songB.author || 'Unknown', 18);
+    
+    return `
+      <div class="matchup-pair">
+        <div class="matchup-team ${songAWinner ? 'winner' : ''}">
+          <div class="team-thumbnail">
+            <img src="${songA.coverImage || 'assets/default-cover.png'}" alt="${songA.title}">
+          </div>
+          <div class="team-info">
+            <span class="team-name" title="${songA.title}">${songATitle}</span>
+            <span class="team-artist">${songAAuthor}</span>
+          </div>
+        </div>
+        <div class="matchup-team ${songBWinner ? 'winner' : ''}">
+          <div class="team-thumbnail">
+            <img src="${songB.coverImage || 'assets/default-cover.png'}" alt="${songB.title}">
+          </div>
+          <div class="team-info">
+            <span class="team-name" title="${songB.title}">${songBTitle}</span>
+            <span class="team-artist">${songBAuthor}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Process votes to determine winners for each round
+  async processRoundWinners(votes) {
+    const roundWinners = {};
+    const totalRounds = Math.log2(this.currentPlaylist.items.length);
+    
+    // Group votes by round
+    for (let round = 1; round <= totalRounds; round++) {
+      // Filter votes for this round
+      const roundVotes = votes.filter(vote => 
+        vote.voteType === 'bracket' && 
+        vote.round === round
+      );
+      
+      if (roundVotes.length === 0) continue;
+      
+      // Process votes to determine winners
+      const matchupVotes = {};
+      
+      // Count votes for each matchup
+      roundVotes.forEach(vote => {
+        if (!vote.votes) return;
+        
+        Object.entries(vote.votes).forEach(([matchNumber, songData]) => {
+          const matchKey = matchNumber;
+          
+          if (!matchupVotes[matchKey]) {
+            matchupVotes[matchKey] = {};
+          }
+          
+          const songId = songData.songId;
+          if (!matchupVotes[matchKey][songId]) {
+            matchupVotes[matchKey][songId] = 0;
+          }
+          
+          matchupVotes[matchKey][songId]++;
+        });
+      });
+      
+      // Determine winners for each matchup
+      const winners = [];
+      
+      Object.entries(matchupVotes).forEach(([matchKey, votes]) => {
+        const songIds = Object.keys(votes);
+        
+        if (songIds.length > 0) {
+          // Sort songs by vote count
+          songIds.sort((a, b) => votes[b] - votes[a]);
+          
+          // Get the winning song
+          const winningSongId = songIds[0];
+          const winningSong = this.currentPlaylist.items.find(item => item.id === winningSongId);
+          
+          if (winningSong) {
+            winners.push({
+              matchNumber: parseInt(matchKey),
+              songId: winningSongId,
+              songTitle: winningSong.title
+            });
+          }
+        }
+      });
+      
+      // Sort winners by match number
+      winners.sort((a, b) => a.matchNumber - b.matchNumber);
+      roundWinners[round] = winners;
     }
-    // Half star
-    if (rating % 1 >= 0.5) {
-        html += '<span class="star half-selected">★</span>';
-    }
-    // Empty stars
-    const emptyStars = 5 - Math.ceil(rating);
-    for (let i = 0; i < emptyStars; i++) {
-        html += '<span class="star">★</span>';
-    }
-    return html;
-}
+    
+    return roundWinners;
+  }
 
   switchTab(button) {
     if (!button) return;

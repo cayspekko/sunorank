@@ -192,6 +192,39 @@ const FirebaseService = {
     }
   },
 
+  // Update the playlist bracket round
+  async updatePlaylistBracketRound(playlistId, round, deadline) {
+    try {
+      const userId = authService.getCurrentUser().uid;
+      
+      // Get the playlist to verify ownership
+      const playlist = await this.getPlaylist(playlistId);
+      
+      if (!playlist) {
+        console.error('Playlist not found');
+        return false;
+      }
+      
+      // Verify that the current user is the owner
+      if (playlist.createdBy !== userId) {
+        console.error('User is not the owner of this playlist');
+        return false;
+      }
+      
+      // Update the playlist document with the new bracket information
+      await db.collection(COLLECTIONS.PLAYLISTS).doc(playlistId).update({
+        bracketCurrentRound: round,
+        bracketRoundDeadline: deadline,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating playlist bracket round:', error);
+      return false;
+    }
+  },
+
   // Vote related functions
   async submitVote(voteData) {
     try {
@@ -286,6 +319,179 @@ const FirebaseService = {
     }
   },
 
+  // Calculate rankings for a playlist
+  async calculateRankings(playlistId) {
+    try {
+      // Get all votes for the playlist
+      const votes = await this.getPlaylistVotes(playlistId);
+      
+      // Get the playlist to determine ranking type
+      const playlist = await this.getPlaylist(playlistId);
+      if (!playlist) {
+        console.error('Playlist not found');
+        return [];
+      }
+      
+      const rankingType = playlist.rankingType || 'ranked-choice';
+      console.log('Calculating rankings for type:', rankingType);
+      
+      // Initialize rankings object
+      const rankings = {};
+      
+      // Process votes based on ranking type
+      if (rankingType === 'star-rating') {
+        // Process star ratings
+        votes.forEach(vote => {
+          if (vote.voteType === 'star-rating' && vote.starVotes) {
+            vote.starVotes.forEach(starVote => {
+              const songId = starVote.songId;
+              const rating = starVote.rating;
+              
+              if (!rankings[songId]) {
+                rankings[songId] = {
+                  songId,
+                  title: starVote.songTitle || 'Unknown Song',
+                  totalPoints: 0,
+                  voteCount: 0,
+                  averageRating: 0
+                };
+              }
+              
+              rankings[songId].totalPoints += rating;
+              rankings[songId].voteCount += 1;
+            });
+          }
+        });
+        
+        // Calculate average ratings
+        Object.values(rankings).forEach(ranking => {
+          ranking.averageRating = ranking.totalPoints / ranking.voteCount;
+          ranking.points = ranking.averageRating; // For sorting
+        });
+      } else if (rankingType === 'bracket') {
+        // Process bracket tournament votes
+        votes.forEach(vote => {
+          if (vote.voteType === 'bracket' && vote.winner) {
+            const songId = vote.winner.id;
+            
+            if (!rankings[songId]) {
+              rankings[songId] = {
+                songId,
+                title: vote.winner.title || 'Unknown Song',
+                winCount: 0
+              };
+            }
+            
+            rankings[songId].winCount += 1;
+            rankings[songId].points = rankings[songId].winCount; // For sorting
+          }
+        });
+      } else {
+        // Process ranked choice votes (default)
+        votes.forEach(vote => {
+          // Handle both old and new vote formats
+          if (vote.votes && Array.isArray(vote.votes)) {
+            // New format with votes array
+            vote.votes.forEach(v => {
+              const songId = v.songId;
+              const rank = v.rank;
+              
+              if (!rankings[songId]) {
+                rankings[songId] = {
+                  songId,
+                  title: v.songTitle || 'Unknown Song',
+                  points: 0,
+                  firstPlace: 0,
+                  secondPlace: 0,
+                  thirdPlace: 0
+                };
+              }
+              
+              // Assign points based on rank
+              if (rank === 1) {
+                rankings[songId].points += 3;
+                rankings[songId].firstPlace += 1;
+              } else if (rank === 2) {
+                rankings[songId].points += 2;
+                rankings[songId].secondPlace += 1;
+              } else if (rank === 3) {
+                rankings[songId].points += 1;
+                rankings[songId].thirdPlace += 1;
+              }
+            });
+          } else {
+            // Old format with firstChoice, secondChoice, thirdChoice
+            // Process first choice
+            if (vote.firstChoice) {
+              const songId = vote.firstChoice;
+              
+              if (!rankings[songId]) {
+                rankings[songId] = {
+                  songId,
+                  title: this.getSongTitleById(playlist, songId) || 'Unknown Song',
+                  points: 0,
+                  firstPlace: 0,
+                  secondPlace: 0,
+                  thirdPlace: 0
+                };
+              }
+              
+              rankings[songId].points += 3;
+              rankings[songId].firstPlace += 1;
+            }
+            
+            // Process second choice
+            if (vote.secondChoice) {
+              const songId = vote.secondChoice;
+              
+              if (!rankings[songId]) {
+                rankings[songId] = {
+                  songId,
+                  title: this.getSongTitleById(playlist, songId) || 'Unknown Song',
+                  points: 0,
+                  firstPlace: 0,
+                  secondPlace: 0,
+                  thirdPlace: 0
+                };
+              }
+              
+              rankings[songId].points += 2;
+              rankings[songId].secondPlace += 1;
+            }
+            
+            // Process third choice
+            if (vote.thirdChoice) {
+              const songId = vote.thirdChoice;
+              
+              if (!rankings[songId]) {
+                rankings[songId] = {
+                  songId,
+                  title: this.getSongTitleById(playlist, songId) || 'Unknown Song',
+                  points: 0,
+                  firstPlace: 0,
+                  secondPlace: 0,
+                  thirdPlace: 0
+                };
+              }
+              
+              rankings[songId].points += 1;
+              rankings[songId].thirdPlace += 1;
+            }
+          }
+        });
+      }
+      
+      // Convert rankings object to array and sort by points
+      const rankingsArray = Object.values(rankings);
+      rankingsArray.sort((a, b) => b.points - a.points);
+      
+      return rankingsArray;
+    } catch (error) {
+      console.error('Error calculating rankings:', error);
+      return [];
+    }
+  },
+  
   // Helper to calculate current rankings based on votes
   calculateRankings(items, votes) {
     // Initialize scores
@@ -465,5 +671,61 @@ const FirebaseService = {
       console.error('Error deleting playlist:', error);
       return false;
     }
-  }
+  },
+  
+  // Submit bracket votes
+  async submitBracketVotes(voteData) {
+    try {
+      // Check if user has already voted for this playlist in this round
+      const existingVoteQuery = await db.collection(COLLECTIONS.VOTES)
+        .where('playlistId', '==', voteData.playlistId)
+        .where('userId', '==', voteData.userId)
+        .where('voteType', '==', 'bracket')
+        .where('round', '==', voteData.round)
+        .get();
+      
+      let voteId;
+      
+      if (!existingVoteQuery.empty) {
+        // User has already voted in this round, update their existing vote
+        voteId = existingVoteQuery.docs[0].id;
+        
+        await db.collection(COLLECTIONS.VOTES).doc(voteId).update({
+          votes: voteData.votes,
+          createdAt: voteData.createdAt
+        });
+      } else {
+        // New vote for this round
+        const docRef = await db.collection(COLLECTIONS.VOTES).add(voteData);
+        voteId = docRef.id;
+      }
+      
+      return voteId;
+    } catch (error) {
+      console.error('Error submitting bracket votes:', error);
+      throw error;
+    }
+  },
+  
+  // Get all votes for a playlist
+  async getPlaylistVotes(playlistId) {
+    try {
+      const votesSnapshot = await db.collection(COLLECTIONS.VOTES)
+        .where('playlistId', '==', playlistId)
+        .get();
+      
+      const votes = [];
+      votesSnapshot.forEach(doc => {
+        votes.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+      
+      return votes;
+    } catch (error) {
+      console.error('Error getting playlist votes:', error);
+      return [];
+    }
+  },
 };
