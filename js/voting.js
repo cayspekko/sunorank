@@ -28,8 +28,6 @@ class VotingManager {
     this.bracketContainer = document.getElementById('bracket-container');
     this.bracketMatchup = document.getElementById('bracket-matchup');
     this.bracketRoundTitle = document.getElementById('bracket-round-title');
-    this.bracketChoiceLeftBtn = document.getElementById('bracket-choice-left-btn');
-    this.bracketChoiceRightBtn = document.getElementById('bracket-choice-right-btn');
     this.bracketProgress = document.getElementById('bracket-progress');
     this.bracketVisualization = document.getElementById('bracket-visualization');
     this.bracketAdminControls = document.getElementById('bracket-admin-controls');
@@ -65,8 +63,6 @@ class VotingManager {
     // Get DOM elements
     this.voteButton = document.getElementById('submit-vote-btn');
     this.submitStarRatingBtn = document.getElementById('submit-star-rating-btn');
-    this.bracketChoiceLeftBtn = document.getElementById('bracket-choice-left-btn');
-    this.bracketChoiceRightBtn = document.getElementById('bracket-choice-right-btn');
     this.bracketSubmitVotesBtn = document.getElementById('bracket-submit-votes-btn');
     this.bracketUpdateRoundBtn = document.getElementById('bracket-update-round-btn');
     this.bracketRoundSelect = document.getElementById('bracket-round-select');
@@ -76,6 +72,7 @@ class VotingManager {
     this.bracketMatchup = document.getElementById('bracket-matchup');
     this.bracketVisualization = document.getElementById('bracket-visualization');
     this.bracketAdminControls = document.getElementById('bracket-admin-controls');
+    this.backToPlaylistBtn = document.getElementById('back-to-playlist-btn');
     
     // Add event listeners for ranked choice voting
     if (this.voteButton) {
@@ -91,18 +88,11 @@ class VotingManager {
       });
     }
     
-    // Add event listeners for bracket tournament
-    if (this.bracketChoiceLeftBtn) {
-      this.bracketChoiceLeftBtn.addEventListener('click', () => {
-        this.selectBracketWinner('left');
-      });
-    }
-    
-    if (this.bracketChoiceRightBtn) {
-      this.bracketChoiceRightBtn.addEventListener('click', () => {
-        this.selectBracketWinner('right');
-      });
-    }
+    // Hide the Choose Left/Right buttons since we're using the cards directly
+    const leftBtn = document.getElementById('bracket-choice-left-btn');
+    const rightBtn = document.getElementById('bracket-choice-right-btn');
+    if (leftBtn) leftBtn.style.display = 'none';
+    if (rightBtn) rightBtn.style.display = 'none';
     
     if (this.bracketSubmitVotesBtn) {
       this.bracketSubmitVotesBtn.addEventListener('click', () => {
@@ -113,6 +103,18 @@ class VotingManager {
     if (this.bracketUpdateRoundBtn) {
       this.bracketUpdateRoundBtn.addEventListener('click', () => {
         this.updateBracketRound();
+      });
+    }
+    
+    // Add event listener for Back To Playlist button
+    if (this.backToPlaylistBtn) {
+      this.backToPlaylistBtn.addEventListener('click', () => {
+        if (this.currentPlaylist && this.currentPlaylist.id) {
+          playlistManager.viewPlaylist(this.currentPlaylist.id);
+        } else {
+          // Fallback to playlist section if we don't have a current playlist
+          app.navigateTo('playlists-section');
+        }
       });
     }
   }
@@ -216,6 +218,9 @@ class VotingManager {
         forceHide(votingSongsContainer);
         console.log("Bracket tournament UI should be visible, other UI hidden");
         
+        // Hide the choice buttons
+        this.hideChoiceButtons();
+        
         // Set up the first matchup
         await this.displayCurrentMatchup();
         
@@ -292,6 +297,8 @@ class VotingManager {
   
   // Initialize bracket tournament
   initializeBracket() {
+    // Hide any choice buttons right at initialization
+    this.hideChoiceButtons();
     console.log("Initializing bracket with items:", this.items.length);
     
     // Validate that we have items
@@ -355,6 +362,9 @@ class VotingManager {
   async displayCurrentMatchup() {
     if (!this.bracketMatchup) return;
     
+    // We want to keep the Submit Votes button, but remove any left/right choice buttons
+    this.hideChoiceButtons();
+    
     try {
       // Get the current matchup
       const matchup = await this.getCurrentBracketMatchup();
@@ -369,8 +379,15 @@ class VotingManager {
       this.bracketMatchup.innerHTML = `
         <div class="bracket-song" data-song-id="${matchup.songA.id}" data-choice="left">
           <img src="${matchup.songA.coverImage || 'assets/default-cover.png'}" alt="${matchup.songA.title}" class="bracket-song-image">
-          <h3 class="bracket-song-title">${matchup.songA.title}</h3>
-          <p class="bracket-song-artist">${matchup.songA.artist || ''}</p>
+          <h3 class="bracket-song-title">
+            <a href="${matchup.songA.sunoUrl || `https://suno.com/song/${matchup.songA.id}`}" target="_blank" class="bracket-song-link" onclick="event.stopPropagation();">
+              ${matchup.songA.title}
+            </a>
+          </h3>
+          <div class="bracket-song-artist-container">
+            <img src="${matchup.songA.authorAvatar || 'assets/default-avatar.png'}" alt="${matchup.songA.authorHandle || matchup.songA.author || 'Artist'}" class="bracket-song-avatar">
+            <p class="bracket-song-artist">${matchup.songA.author || 'Unknown artist'}</p>
+          </div>
         </div>
         
         <div class="bracket-vs">
@@ -379,8 +396,15 @@ class VotingManager {
         
         <div class="bracket-song" data-song-id="${matchup.songB.id}" data-choice="right">
           <img src="${matchup.songB.coverImage || 'assets/default-cover.png'}" alt="${matchup.songB.title}" class="bracket-song-image">
-          <h3 class="bracket-song-title">${matchup.songB.title}</h3>
-          <p class="bracket-song-artist">${matchup.songB.artist || ''}</p>
+          <h3 class="bracket-song-title">
+            <a href="${matchup.songB.sunoUrl || `https://suno.com/song/${matchup.songB.id}`}" target="_blank" class="bracket-song-link" onclick="event.stopPropagation();">
+              ${matchup.songB.title}
+            </a>
+          </h3>
+          <div class="bracket-song-artist-container">
+            <img src="${matchup.songB.authorAvatar || 'assets/default-avatar.png'}" alt="${matchup.songB.authorHandle || matchup.songB.author || 'Artist'}" class="bracket-song-avatar">
+            <p class="bracket-song-artist">${matchup.songB.author || 'Unknown artist'}</p>
+          </div>
         </div>
       `;
       
@@ -388,10 +412,73 @@ class VotingManager {
       const bracketSongs = this.bracketMatchup.querySelectorAll('.bracket-song');
       bracketSongs.forEach(song => {
         song.addEventListener('click', (e) => {
+          // Don't trigger if clicking on the title link (which opens Suno)
+          if (e.target.tagName.toLowerCase() === 'a' || e.target.closest('a')) {
+            return;
+          }
           const choice = song.dataset.choice;
           this.selectBracketWinner(choice);
         });
       });
+      
+      // Add some styling for the new elements
+      if (!document.getElementById('bracket-song-styles')) {
+        const style = document.createElement('style');
+        style.id = 'bracket-song-styles';
+        style.textContent = `
+          .bracket-song {
+            cursor: pointer;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 10px;
+            transition: all 0.2s;
+          }
+          .bracket-song:hover {
+            border-color: #007bff;
+            box-shadow: 0 0 8px rgba(0,123,255,0.5);
+          }
+          .bracket-song.selected {
+            border-color: #28a745;
+            box-shadow: 0 0 8px rgba(40,167,69,0.5);
+          }
+          .bracket-song-artist-container {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+          }
+          .bracket-song-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            margin-right: 8px;
+          }
+          .bracket-song-artist {
+            margin: 0;
+            font-size: 14px;
+            color: #666;
+          }
+          .bracket-song-image {
+            width: 100%;
+            border-radius: 6px;
+          }
+          .bracket-song-title {
+            margin: 10px 0 0 0;
+          }
+          .bracket-song-link {
+            color: inherit;
+            text-decoration: none;
+          }
+          .bracket-song-link:hover {
+            text-decoration: underline;
+          }
+          .bracket-song-description {
+            margin: 5px 0 0 0;
+            font-size: 14px;
+            color: #666;
+          }
+        `;
+        document.head.appendChild(style);
+      }
       
       // Update the round title
       if (this.bracketRoundTitle) {
@@ -533,40 +620,280 @@ class VotingManager {
     return participantsInRound / 2;
   }
   
+  // Helper method to remove choice buttons completely
+  hideChoiceButtons() {
+    // Find and remove only the choice left/right buttons from the DOM
+    const choiceButtons = document.querySelectorAll('#bracket-choice-left-btn, #bracket-choice-right-btn');
+    choiceButtons.forEach(btn => {
+      if (btn && btn.parentNode) {
+        btn.parentNode.removeChild(btn);
+      }
+    });
+    
+    // Also remove any buttons with text containing 'Choose Left' or 'Choose Right'
+    document.querySelectorAll('button').forEach(btn => {
+      if (btn && btn.textContent && (
+        btn.textContent.includes('Choose Left') ||
+        btn.textContent.includes('Choose Right')
+      ) && btn.parentNode) {
+        btn.parentNode.removeChild(btn);
+      }
+    });
+    
+    // Add CSS to ensure any dynamically added buttons won't show
+    if (!document.getElementById('bracket-voting-style')) {
+      const style = document.createElement('style');
+      style.id = 'bracket-voting-style';
+      style.textContent = `
+        /* Make the bracket song cards more interactive */
+        .bracket-song {
+          cursor: pointer;
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .bracket-song:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .bracket-song.selected {
+          border-color: #28a745;
+          box-shadow: 0 0 0 3px rgba(40,167,69,0.25);
+        }
+        .bracket-song-image {
+          border-radius: 8px;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+          transition: transform 0.2s;
+        }
+        .bracket-song:hover .bracket-song-image {
+          transform: scale(1.03);
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+  
   // Update the bracket visualization
   updateBracketVisualization() {
     if (!this.bracketVisualization) return;
     
-    // Create a visual representation of the tournament bracket
-    let html = '<div class="bracket-grid">';
+    // Create a simple table to display the matchups and votes
+    let html = `
+      <div class="bracket-votes-table-container">
+        <table class="bracket-votes-table">
+          <thead>
+            <tr>
+              <th>Match-Up Songs</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
     
-    // Calculate the total number of rounds
-    const totalRounds = this.calculateTotalRounds(this.items.length);
+    // Get the number of matches in the current round
+    const matchesInRound = this.getTotalMatchesForRound(this.currentRound);
     
-    // Generate each round
-    for (let round = 1; round <= totalRounds; round++) {
-      html += `<div class="bracket-round">
-        <h4>Round ${round}</h4>`;
+    // Generate a row for each match in the current round
+    for (let match = 1; match <= matchesInRound; match++) {
+      // Determine the songs for this match
+      let leftSong = null;
+      let rightSong = null;
       
-      // Calculate the number of matches in this round
-      const matchesInRound = this.getTotalMatchesForRound(round);
-      
-      // Generate each match in the round
-      for (let match = 1; match <= matchesInRound; match++) {
-        // Determine if this is the current match
-        const isCurrentMatch = (round === this.currentRound && match === this.getCurrentMatchNumber());
+      // For round 1, we know the songs are just the original playlist items
+      if (this.currentRound === 1) {
+        const leftIndex = (match - 1) * 2;
+        const rightIndex = leftIndex + 1;
         
-        html += `<div class="bracket-match ${isCurrentMatch ? 'current-match' : ''}">
-          <div class="bracket-match-song">Song ${(match - 1) * 2 + 1}</div>
-          <div class="bracket-match-song">Song ${(match - 1) * 2 + 2}</div>
-        </div>`;
+        if (leftIndex < this.items.length) {
+          leftSong = this.items[leftIndex];
+        }
+        
+        if (rightIndex < this.items.length) {
+          rightSong = this.items[rightIndex];
+        }
+      } else {
+        // For later rounds, try to get the actual songs from previous round winners
+        try {
+          // Only attempt this if we have winners from previous rounds
+          if (this.bracketWinners && this.bracketWinners[this.currentRound - 1]) {
+            const previousRoundWinners = this.bracketWinners[this.currentRound - 1];
+            const leftIndex = (match - 1) * 2;
+            const rightIndex = leftIndex + 1;
+            
+            // Make sure indices are valid
+            if (leftIndex < previousRoundWinners.length && previousRoundWinners[leftIndex]) {
+              // Find the actual song from the items array
+              leftSong = this.items.find(song => song.id === previousRoundWinners[leftIndex].songId) || 
+                      { title: `Winner from previous round` };
+            }
+            
+            if (rightIndex < previousRoundWinners.length && previousRoundWinners[rightIndex]) {
+              // Find the actual song from the items array
+              rightSong = this.items.find(song => song.id === previousRoundWinners[rightIndex].songId) || 
+                      { title: `Winner from previous round` };
+            }
+          } else {
+            // If we don't have previous round winners, use placeholders
+            leftSong = { title: `Match ${Math.floor((match-1)/2)*2 + 1} Winner` };
+            rightSong = { title: `Match ${Math.floor((match-1)/2)*2 + 2} Winner` };
+          }
+        } catch (error) {
+          console.error("Error determining songs for later rounds:", error);
+          leftSong = { title: `Left Song` };
+          rightSong = { title: `Right Song` };
+        }
       }
       
-      html += '</div>';
+      // Determine if this match has a vote
+      let leftSelected = false;
+      let rightSelected = false;
+      
+      if (this.bracketVotes && 
+          this.bracketVotes[this.currentRound] && 
+          this.bracketVotes[this.currentRound][match]) {
+        
+        const vote = this.bracketVotes[this.currentRound][match];
+        
+        // Determine which song was selected
+        if (leftSong && leftSong.id === vote.songId) {
+          leftSelected = true;
+        } else if (rightSong && rightSong.id === vote.songId) {
+          rightSelected = true;
+        }
+      }
+      
+      // Determine if this is the current match
+      const isCurrentMatch = (match === this.getCurrentMatchNumber());
+      
+      // Create the row with a data attribute for the match number
+      html += `
+        <tr class="${isCurrentMatch ? 'current-match' : ''}" data-match="${match}" data-round="${this.currentRound}">
+          <td>
+            <div class="bracket-table-row">
+              <div class="bracket-table-song ${leftSelected ? 'selected-song' : ''}">
+                <img src="${leftSong && leftSong.coverImage ? leftSong.coverImage : 'assets/default-cover.png'}" class="bracket-table-song-image">
+                <div class="bracket-table-song-info">
+                  <div class="bracket-table-song-title">${leftSong ? leftSong.title : 'N/A'}</div>
+                  <div class="bracket-table-song-artist-container">
+                    <img src="${leftSong && leftSong.authorAvatar ? leftSong.authorAvatar : 'assets/default-avatar.png'}" class="bracket-table-song-avatar">
+                    <div class="bracket-table-song-artist">${leftSong && leftSong.author ? leftSong.author : 'Unknown artist'}</div>
+                  </div>
+                </div>
+              </div>
+              <div class="bracket-table-vs">VS</div>
+              <div class="bracket-table-song ${rightSelected ? 'selected-song' : ''}">
+                <img src="${rightSong && rightSong.coverImage ? rightSong.coverImage : 'assets/default-cover.png'}" class="bracket-table-song-image">
+                <div class="bracket-table-song-info">
+                  <div class="bracket-table-song-title">${rightSong ? rightSong.title : 'N/A'}</div>
+                  <div class="bracket-table-song-artist-container">
+                    <img src="${rightSong && rightSong.authorAvatar ? rightSong.authorAvatar : 'assets/default-avatar.png'}" class="bracket-table-song-avatar">
+                    <div class="bracket-table-song-artist">${rightSong && rightSong.author ? rightSong.author : 'Unknown artist'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      `;
     }
     
-    html += '</div>';
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+    
     this.bracketVisualization.innerHTML = html;
+    
+    // Add click event listeners to the table rows
+    const rows = this.bracketVisualization.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+      row.addEventListener('click', () => {
+        const matchNumber = parseInt(row.dataset.match, 10);
+        if (!isNaN(matchNumber)) {
+          // Update the current matchup index (0-based, hence the -1)
+          this.currentMatchupIndex = matchNumber - 1;
+          // Display the selected matchup
+          this.displayCurrentMatchup();
+        }
+      });
+    });
+    
+    // Add some basic styling for the votes table
+    const style = document.createElement('style');
+    style.textContent = `
+      .bracket-votes-table-container {
+        margin-top: 20px;
+      }
+      .bracket-votes-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .bracket-votes-table th, .bracket-votes-table td {
+        padding: 10px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+      }
+      .bracket-votes-table th {
+        font-weight: bold;
+        background-color: #f5f5f5;
+      }
+      .bracket-votes-table tbody tr {
+        cursor: pointer;
+      }
+      .bracket-votes-table tbody tr:hover {
+        background-color: #f9f9f9;
+      }
+      .bracket-votes-table tr.current-match {
+        background-color: #e6f7ff;
+      }
+      .bracket-table-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .bracket-table-song {
+        display: flex;
+        align-items: center;
+        padding: 5px;
+        border-radius: 4px;
+        width: 45%;
+      }
+      .bracket-table-song.selected-song {
+        background-color: #e6ffe6;
+        font-weight: bold;
+      }
+      .bracket-table-song-image {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 4px;
+        margin-right: 10px;
+      }
+      .bracket-table-song-info {
+        flex: 1;
+      }
+      .bracket-table-song-title {
+        font-weight: 500;
+      }
+      .bracket-table-song-artist-container {
+        display: flex;
+        align-items: center;
+        margin-top: 5px;
+      }
+      .bracket-table-song-avatar {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        margin-right: 6px;
+      }
+      .bracket-table-song-artist {
+        font-size: 0.85em;
+        color: #666;
+      }
+      .bracket-table-vs {
+        font-weight: bold;
+        padding: 0 10px;
+      }
+    `;
+    document.head.appendChild(style);
   }
   
   // Show admin controls if the user is the playlist owner
@@ -1072,6 +1399,13 @@ class VotingManager {
         song.classList.add('selected');
       }
     });
+    
+    // Hide the Choose Left/Right buttons since we're using the cards directly
+    // This ensures backward compatibility with any existing HTML that might have these buttons
+    const leftBtn = document.getElementById('bracket-choice-left-btn');
+    const rightBtn = document.getElementById('bracket-choice-right-btn');
+    if (leftBtn) leftBtn.style.display = 'none';
+    if (rightBtn) rightBtn.style.display = 'none';
   }
   
   // ... rest of the code remains the same ...

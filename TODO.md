@@ -72,3 +72,5 @@
 ## Other Stuff
 * load and list suno profile info when verified
 * allow return and reverify 
+
+## Bugfixes
