@@ -250,7 +250,7 @@ const FirebaseService = {
         } else {
           // Default to ranked-choice
           await db.collection(COLLECTIONS.VOTES).doc(voteId).update({
-            votes: voteData.votes,
+            selections: voteData.selections,
             timestamp: voteData.timestamp
           });
         }
@@ -519,14 +519,25 @@ const FirebaseService = {
     // Process all votes
     votes.forEach(vote => {
         if (vote.voteType === 'star-rating' && vote.starVotes) {
-            // Process star rating votes
-            vote.starVotes.forEach(starVote => {
-                const key = starVote.songId;
-                if (!scores[key]) return;
-                
-                scores[key].starRatingTotal += starVote.rating;
-                scores[key].starRatingCount += 1;
-            });
+            // Process star rating votes - handle both array and object formats
+            if (Array.isArray(vote.starVotes)) {
+                // Handle array format
+                vote.starVotes.forEach(starVote => {
+                    const key = starVote.songId;
+                    if (!scores[key]) return;
+                    
+                    scores[key].starRatingTotal += starVote.rating;
+                    scores[key].starRatingCount += 1;
+                });
+            } else if (typeof vote.starVotes === 'object') {
+                // Handle object format where keys are songIds and values are ratings
+                Object.entries(vote.starVotes).forEach(([songId, rating]) => {
+                    if (!scores[songId]) return;
+                    
+                    scores[songId].starRatingTotal += rating;
+                    scores[songId].starRatingCount += 1;
+                });
+            }
         } else if (vote.votes && Array.isArray(vote.votes)) {
             // Process new vote format with votes array
             vote.votes.forEach(voteItem => {
@@ -544,20 +555,50 @@ const FirebaseService = {
                     scores[songId].thirdPlace += 1;
                 }
             });
+        } else if (vote.votes && typeof vote.votes === 'object' && !Array.isArray(vote.votes)) {
+            // Handle the case where votes is an object with first, second, third keys
+            const first = vote.votes.first;
+            const second = vote.votes.second;
+            const third = vote.votes.third;
+            
+            if (first && scores[first]) {
+                scores[first].points += 3;
+                scores[first].firstPlace += 1;
+            }
+            
+            if (second && scores[second]) {
+                scores[second].points += 2;
+                scores[second].secondPlace += 1;
+            }
+            
+            if (third && scores[third]) {
+                scores[third].points += 1;
+                scores[third].thirdPlace += 1;
+            }
         } else {
             // Process ranked choice votes (old format)
-            // Extract the key (id) if the vote choice is an object
-            const firstKey = typeof vote.firstChoice === 'object' && vote.firstChoice !== null 
+            // Check if vote uses selections object (new format) or direct properties (old format)
+            let firstKey, secondKey, thirdKey;
+            
+            if (vote.selections) {
+                // New format with selections object
+                firstKey = vote.selections.first;
+                secondKey = vote.selections.second;
+                thirdKey = vote.selections.third;
+            } else {
+                // Old format with direct properties
+                firstKey = typeof vote.firstChoice === 'object' && vote.firstChoice !== null 
                             ? vote.firstChoice.id 
                             : vote.firstChoice;
-            
-            const secondKey = typeof vote.secondChoice === 'object' && vote.secondChoice !== null 
-                              ? vote.secondChoice.id 
-                              : vote.secondChoice;
-            
-            const thirdKey = typeof vote.thirdChoice === 'object' && vote.thirdChoice !== null 
+                
+                secondKey = typeof vote.secondChoice === 'object' && vote.secondChoice !== null 
+                            ? vote.secondChoice.id 
+                            : vote.secondChoice;
+                
+                thirdKey = typeof vote.thirdChoice === 'object' && vote.thirdChoice !== null 
                             ? vote.thirdChoice.id 
                             : vote.thirdChoice;
+            }
             
             if (firstKey && scores[firstKey]) {
               scores[firstKey].points += 3;

@@ -295,6 +295,470 @@ class VotingManager {
     }
   }
   
+  // Display the current song for star rating
+  displayCurrentSong() {
+    if (!this.items || this.items.length === 0) {
+      console.error('No songs available for rating');
+      return;
+    }
+    
+    // Make sure currentSongIndex is valid
+    if (this.currentSongIndex < 0) this.currentSongIndex = 0;
+    if (this.currentSongIndex >= this.items.length) this.currentSongIndex = this.items.length - 1;
+    
+    const currentSong = this.items[this.currentSongIndex];
+    
+    if (!currentSong) {
+      console.error('Current song not found');
+      return;
+    }
+    
+    // Update song card with current song details
+    if (this.songCard) {
+      this.songCard.innerHTML = `
+        <div class="song-card-image">
+          <img src="${currentSong.coverImage || 'assets/default-cover.png'}" alt="${currentSong.title}" style="width:100%; aspect-ratio:1/1; object-fit:cover;">
+        </div>
+        <div class="song-card-content">
+          <h3 class="song-card-title"><a href="${currentSong.sunoUrl || '#'}" target="_blank">${currentSong.title}</a></h3>
+          <div class="song-card-author">
+            <img src="${currentSong.authorAvatar || 'assets/default-avatar.png'}" alt="${currentSong.author}" class="artist-avatar" style="width:32px; height:32px; border-radius:50%; margin-right:8px;">
+            <span>${currentSong.author}</span>
+          </div>
+          <div class="star-rating" id="star-rating-${currentSong.id}">
+            <i class="far fa-star" data-value="1"></i>
+            <i class="far fa-star" data-value="2"></i>
+            <i class="far fa-star" data-value="3"></i>
+            <i class="far fa-star" data-value="4"></i>
+            <i class="far fa-star" data-value="5"></i>
+          </div>
+        </div>
+      `;
+      
+      // Set up star rating click handlers
+      const stars = this.songCard.querySelectorAll('.star-rating i');
+      stars.forEach(star => {
+        star.addEventListener('click', () => {
+          const value = parseInt(star.dataset.value);
+          this.setStarRating(currentSong.id, value);
+        });
+        
+        star.addEventListener('mouseover', () => {
+          const value = parseInt(star.dataset.value);
+          this.highlightStars(stars, value);
+        });
+        
+        star.addEventListener('mouseout', () => {
+          // Restore the actual rating
+          const currentRating = this.starRatings[currentSong.id] || 0;
+          this.highlightStars(stars, currentRating);
+        });
+      });
+      
+      // Set any existing rating
+      if (this.starRatings[currentSong.id]) {
+        this.highlightStars(stars, this.starRatings[currentSong.id]);
+      }
+    }
+    
+    // Update progress indicator
+    if (this.songProgress) {
+      this.songProgress.textContent = `Song ${this.currentSongIndex + 1} of ${this.items.length}`;
+    }
+    
+    // Update navigation buttons state
+    if (this.prevSongBtn) {
+      this.prevSongBtn.disabled = this.currentSongIndex === 0;
+      this.prevSongBtn.classList.toggle('disabled', this.currentSongIndex === 0);
+      
+      // Add click handler if not already added
+      if (!this.prevSongBtn._hasClickHandler) {
+        this.prevSongBtn.addEventListener('click', () => {
+          if (this.currentSongIndex > 0) {
+            this.currentSongIndex--;
+            this.displayCurrentSong();
+          }
+        });
+        this.prevSongBtn._hasClickHandler = true;
+      }
+    }
+    
+    if (this.nextSongBtn) {
+      this.nextSongBtn.disabled = this.currentSongIndex === this.items.length - 1;
+      this.nextSongBtn.classList.toggle('disabled', this.currentSongIndex === this.items.length - 1);
+      
+      // Add click handler if not already added
+      if (!this.nextSongBtn._hasClickHandler) {
+        this.nextSongBtn.addEventListener('click', () => {
+          if (this.currentSongIndex < this.items.length - 1) {
+            this.currentSongIndex++;
+            this.displayCurrentSong();
+          }
+        });
+        this.nextSongBtn._hasClickHandler = true;
+      }
+    }
+  }
+  
+  // Highlight stars up to the given value
+  highlightStars(stars, value) {
+    stars.forEach(star => {
+      const starValue = parseInt(star.dataset.value);
+      if (starValue <= value) {
+        star.className = 'fas fa-star';
+      } else {
+        star.className = 'far fa-star';
+      }
+    });
+  }
+  
+  // Set star rating for a song
+  setStarRating(songId, value) {
+    this.starRatings[songId] = value;
+    console.log(`Set rating for song ${songId} to ${value}`);
+    
+    // Highlight the appropriate stars
+    const stars = document.querySelectorAll(`#star-rating-${songId} i`);
+    this.highlightStars(stars, value);
+    
+    // Enable the submit button if at least one rating is made
+    if (this.submitStarRatingBtn) {
+      this.submitStarRatingBtn.disabled = false;
+      console.log('Submit star rating button enabled');
+    }
+  }
+  
+  // Render all songs for ranked-choice selection
+  renderSongsForSelection() {
+    if (!this.items || this.items.length === 0 || !this.votingSongsContainer) {
+      console.error('No songs to render or container not found');
+      return;
+    }
+    
+    // Clear the container first
+    this.votingSongsContainer.innerHTML = '';
+    
+    // Create instructions
+    const instructions = document.createElement('div');
+    instructions.className = 'voting-instructions';
+    instructions.innerHTML = `
+      <h3>Select your top three songs</h3>
+      <p>Click on songs to select your first, second, and third place choices.</p>
+    `;
+    this.votingSongsContainer.appendChild(instructions);
+    
+    // Create songs grid
+    const songsGrid = document.createElement('div');
+    songsGrid.className = 'songs-grid';
+    
+    // Add each song
+    this.items.forEach(song => {
+      const songCard = document.createElement('div');
+      songCard.className = 'song-card';
+      songCard.dataset.songId = song.id;
+      
+      // Check if this song is one of the selections
+      let selectionClass = '';
+      let selectionBadge = '';
+      
+      if (this.selections.first === song.id) {
+        selectionClass = 'selected first-place';
+        selectionBadge = '<div class="selection-badge first">1st</div>';
+      } else if (this.selections.second === song.id) {
+        selectionClass = 'selected second-place';
+        selectionBadge = '<div class="selection-badge second">2nd</div>';
+      } else if (this.selections.third === song.id) {
+        selectionClass = 'selected third-place';
+        selectionBadge = '<div class="selection-badge third">3rd</div>';
+      }
+      
+      songCard.className += ` ${selectionClass}`;
+      
+      songCard.innerHTML = `
+        ${selectionBadge}
+        <div class="song-thumbnail">
+          <img src="${song.coverImage || 'assets/default-cover.png'}" alt="${song.title}">
+        </div>
+        <div class="song-details">
+          <h4 class="song-title">${song.title}</h4>
+          <div class="song-artist">
+            <img src="${song.authorAvatar || 'assets/default-avatar.png'}" alt="${song.author}" class="artist-avatar-small">
+            <span>${song.author}</span>
+          </div>
+        </div>
+      `;
+      
+      // Add click handler to select/deselect songs
+      songCard.addEventListener('click', () => {
+        this.toggleSongSelection(song.id);
+      });
+      
+      songsGrid.appendChild(songCard);
+    });
+    
+    this.votingSongsContainer.appendChild(songsGrid);
+    
+    // Add submit button container
+    const submitContainer = document.createElement('div');
+    submitContainer.className = 'submit-container';
+    submitContainer.style.marginTop = '20px';
+    submitContainer.style.textAlign = 'center';
+    
+    // Create a submit button if the original submit-vote-btn is not available
+    const submitBtn = document.createElement('button');
+    submitBtn.id = 'ranked-choice-submit-btn';
+    submitBtn.className = 'primary-btn';
+    submitBtn.textContent = 'Submit Vote';
+    submitBtn.disabled = !(this.selections.first || this.selections.second || this.selections.third);
+    
+    // Add click event listener to the new submit button
+    submitBtn.addEventListener('click', () => this.submitVote());
+    
+    submitContainer.appendChild(submitBtn);
+    this.votingSongsContainer.appendChild(submitContainer);
+    
+    // Add CSS if not already added
+    if (!document.getElementById('ranked-choice-styles')) {
+      const style = document.createElement('style');
+      style.id = 'ranked-choice-styles';
+      style.textContent = `
+        .songs-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          gap: 15px;
+          margin-top: 20px;
+        }
+        .song-card {
+          border-radius: 8px;
+          border: 1px solid #ddd;
+          overflow: hidden;
+          transition: transform 0.2s, box-shadow 0.2s;
+          cursor: pointer;
+          position: relative;
+        }
+        .song-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .song-card.selected {
+          border-width: 2px;
+        }
+        .song-card.first-place {
+          border-color: gold;
+          box-shadow: 0 0 10px rgba(255,215,0,0.5);
+        }
+        .song-card.second-place {
+          border-color: silver;
+          box-shadow: 0 0 10px rgba(192,192,192,0.5);
+        }
+        .song-card.third-place {
+          border-color: #cd7f32;
+          box-shadow: 0 0 10px rgba(205,127,50,0.5);
+        }
+        .selection-badge {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          color: white;
+          font-size: 14px;
+          z-index: 1;
+        }
+        .selection-badge.first {
+          background-color: gold;
+          color: black;
+        }
+        .selection-badge.second {
+          background-color: silver;
+          color: black;
+        }
+        .selection-badge.third {
+          background-color: #cd7f32;
+        }
+        .song-thumbnail img {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          object-fit: cover;
+        }
+        .song-details {
+          padding: 10px;
+        }
+        .song-title {
+          margin: 0 0 5px 0;
+          font-size: 14px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .song-artist {
+          display: flex;
+          align-items: center;
+          font-size: 12px;
+          color: #666;
+        }
+        .artist-avatar-small {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          margin-right: 5px;
+        }
+        .voting-instructions {
+          margin-bottom: 20px;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+  
+  // Toggle song selection for ranked-choice voting
+  toggleSongSelection(songId) {
+    // Check if this song is already selected
+    if (this.selections.first === songId) {
+      this.selections.first = null;
+    } else if (this.selections.second === songId) {
+      this.selections.second = null;
+    } else if (this.selections.third === songId) {
+      this.selections.third = null;
+    } else {
+      // Not selected yet, add it to the first empty slot
+      if (this.selections.first === null) {
+        this.selections.first = songId;
+      } else if (this.selections.second === null) {
+        this.selections.second = songId;
+      } else if (this.selections.third === null) {
+        this.selections.third = songId;
+      } else {
+        // All slots are full, show a message
+        app.showMessage('You can only select three songs. Deselect one first.');
+        return;
+      }
+    }
+    
+    // Update the UI to reflect the changes
+    this.renderSongsForSelection();
+    
+    // Enable/disable the submit button based on selections
+    if (this.voteButton) {
+      const hasSelections = this.selections.first !== null || 
+                          this.selections.second !== null || 
+                          this.selections.third !== null;
+      this.voteButton.disabled = !hasSelections;
+    }
+  }
+  
+  // Submit star ratings for all songs
+  async submitStarRatings() {
+    try {
+      // Ensure user is logged in
+      if (!authService.isLoggedIn()) {
+        app.showMessage("You must be logged in to submit ratings.");
+        return;
+      }
+      
+      // Show loading
+      app.showLoading('Submitting your ratings...');
+      
+      // Check if any ratings were made
+      const ratingEntries = Object.entries(this.starRatings);
+      if (ratingEntries.length === 0) {
+        app.showMessage('Please rate at least one song before submitting.');
+        app.hideLoading();
+        return;
+      }
+      
+      // Prepare vote data
+      const userId = authService.getCurrentUser().uid;
+      const playlistId = this.currentPlaylist.id;
+      
+      // Structure the vote data to match Firebase service expectations
+      const voteData = {
+        userId: userId,
+        playlistId: playlistId,
+        voteType: 'star-rating',
+        starVotes: this.starRatings, // Using starVotes instead of ratings to match Firebase service
+        createdAt: new Date().toISOString() // Using createdAt instead of timestamp
+      };
+      
+      // Submit to Firebase
+      await FirebaseService.submitVote(voteData);
+      
+      // Show success message
+      app.showMessage('Your ratings have been submitted successfully!');
+      
+      // Navigate back to the playlist
+      playlistManager.viewPlaylist(playlistId);
+    } catch (error) {
+      console.error('Error submitting star ratings:', error);
+      app.showMessage(`Error: ${error.message}`);
+    } finally {
+      app.hideLoading();
+    }
+  }
+  
+  // Submit ranked choice vote
+  async submitVote() {
+    try {
+      // Ensure user is logged in
+      if (!authService.isLoggedIn()) {
+        app.showMessage("You must be logged in to submit a vote.");
+        return;
+      }
+      
+      // Show loading
+      app.showLoading('Submitting your vote...');
+      
+      // Check if any selections were made
+      if (!this.selections.first && !this.selections.second && !this.selections.third) {
+        app.showMessage('Please select at least one song before submitting your vote.');
+        app.hideLoading();
+        return;
+      }
+      
+      // Prepare vote data
+      const userId = authService.getCurrentUser().uid;
+      const playlistId = this.currentPlaylist.id;
+      
+      // Find the song objects for the selections
+      const firstChoice = this.selections.first ? this.items.find(item => item.id === this.selections.first) : null;
+      const secondChoice = this.selections.second ? this.items.find(item => item.id === this.selections.second) : null;
+      const thirdChoice = this.selections.third ? this.items.find(item => item.id === this.selections.third) : null;
+      
+      // Structure the vote data to exactly match the format in the database
+      const voteData = {
+        userId: userId,
+        playlistId: playlistId,
+        voteType: 'ranked-choice',
+        // Use selections object with first, second, third fields to match database structure
+        selections: {
+          first: this.selections.first,
+          second: this.selections.second,
+          third: this.selections.third
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      // Submit to Firebase
+      await FirebaseService.submitVote(voteData);
+      
+      // Show success message
+      app.showMessage('Your vote has been submitted successfully!');
+      
+      // Navigate back to the playlist
+      playlistManager.viewPlaylist(playlistId);
+    } catch (error) {
+      console.error('Error submitting vote:', error);
+      app.showMessage(`Error: ${error.message}`);
+    } finally {
+      app.hideLoading();
+    }
+  }
+  
   // Initialize bracket tournament
   initializeBracket() {
     // Hide any choice buttons right at initialization

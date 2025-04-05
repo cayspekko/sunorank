@@ -558,7 +558,9 @@ class PlaylistManager {
     if (!this.currentPlaylist) return;
 
     try {
+      console.log('Loading votes for playlist:', this.currentPlaylist.id);
       const votes = await FirebaseService.getPlaylistVotes(this.currentPlaylist.id);
+      console.log('Votes loaded:', votes.length, votes);
       this.currentPlaylist.voteCount = votes.length;
       
       // Update info text
@@ -566,15 +568,64 @@ class PlaylistManager {
       
       // Calculate and display rankings
       this.displayRankings(votes);
+      
+      // Make sure the ranking tab is visible
+      const rankingTab = document.getElementById('ranking-tab');
+      if (rankingTab) {
+        rankingTab.classList.remove('hidden');
+        rankingTab.classList.add('active');
+      }
+      
+      // Explicitly check and ensure the current-ranking element is visible
+      if (this.currentRanking) {
+        this.currentRanking.style.display = 'block';
+      }
     } catch (error) {
       console.error('Error loading votes:', error);
     }
   }
 
+  // Generate HTML representation of star rating
+  generateStarDisplay(rating) {
+    // Ensure rating is a valid number
+    const numRating = parseFloat(rating) || 0;
+    const fullStars = Math.floor(numRating);
+    const halfStar = numRating % 1 >= 0.5;
+    const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
+    
+    let starsHtml = '';
+    
+    // Add full stars
+    for (let i = 0; i < fullStars; i++) {
+      starsHtml += '<i class="fas fa-star"></i>';
+    }
+    
+    // Add half star if needed
+    if (halfStar) {
+      starsHtml += '<i class="fas fa-star-half-alt"></i>';
+    }
+    
+    // Add empty stars
+    for (let i = 0; i < emptyStars; i++) {
+      starsHtml += '<i class="far fa-star"></i>';
+    }
+    
+    return starsHtml;
+  }
+
   displayRankings(votes) {
     if (!this.currentPlaylist) return;
     
+    console.log('Displaying rankings for', this.currentPlaylist.name, 'with', votes.length, 'votes');
+    
     const rankingType = this.currentPlaylist.rankingType || 'ranked-choice';
+    console.log('Ranking type:', rankingType);
+    
+    if (!this.currentRanking) {
+      console.error('Current ranking element not found');
+      return;
+    }
+    
     this.currentRanking.innerHTML = '';
 
     if (votes.length === 0) {
@@ -615,12 +666,14 @@ class PlaylistManager {
                         </p>
                     `;
                 } else {
-                    // Ranked choice display (existing)
+                    // Ranked choice display with improved visibility
                     statsHtml = `
-                        <p><span class="score">${ranking.points} points</span> • 
-                           ${ranking.firstPlace} first place, 
-                           ${ranking.secondPlace} second place, 
-                           ${ranking.thirdPlace} third place votes</p>
+                        <p>
+                            <span class="score" style="color: #34a853; font-weight: bold;">${ranking.points} points</span> • 
+                            <span>${ranking.firstPlace} first place, 
+                            ${ranking.secondPlace} second place, 
+                            ${ranking.thirdPlace} third place votes</span>
+                        </p>
                     `;
                 }
                 
