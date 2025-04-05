@@ -517,103 +517,7 @@ class VotingManager {
     submitContainer.appendChild(submitBtn);
     this.votingSongsContainer.appendChild(submitContainer);
     
-    // Add CSS if not already added
-    if (!document.getElementById('ranked-choice-styles')) {
-      const style = document.createElement('style');
-      style.id = 'ranked-choice-styles';
-      style.textContent = `
-        .songs-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-          gap: 15px;
-          margin-top: 20px;
-        }
-        .song-card {
-          border-radius: 8px;
-          border: 1px solid #ddd;
-          overflow: hidden;
-          transition: transform 0.2s, box-shadow 0.2s;
-          cursor: pointer;
-          position: relative;
-        }
-        .song-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-        .song-card.selected {
-          border-width: 2px;
-        }
-        .song-card.first-place {
-          border-color: gold;
-          box-shadow: 0 0 10px rgba(255,215,0,0.5);
-        }
-        .song-card.second-place {
-          border-color: silver;
-          box-shadow: 0 0 10px rgba(192,192,192,0.5);
-        }
-        .song-card.third-place {
-          border-color: #cd7f32;
-          box-shadow: 0 0 10px rgba(205,127,50,0.5);
-        }
-        .selection-badge {
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          width: 30px;
-          height: 30px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-          color: white;
-          font-size: 14px;
-          z-index: 1;
-        }
-        .selection-badge.first {
-          background-color: gold;
-          color: black;
-        }
-        .selection-badge.second {
-          background-color: silver;
-          color: black;
-        }
-        .selection-badge.third {
-          background-color: #cd7f32;
-        }
-        .song-thumbnail img {
-          width: 100%;
-          aspect-ratio: 1 / 1;
-          object-fit: cover;
-        }
-        .song-details {
-          padding: 10px;
-        }
-        .song-title {
-          margin: 0 0 5px 0;
-          font-size: 14px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .song-artist {
-          display: flex;
-          align-items: center;
-          font-size: 12px;
-          color: #666;
-        }
-        .artist-avatar-small {
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          margin-right: 5px;
-        }
-        .voting-instructions {
-          margin-bottom: 20px;
-        }
-      `;
-      document.head.appendChild(style);
-    }
+    // Styles for ranked choice voting moved to styles.css
   }
   
   // Toggle song selection for ranked-choice voting
@@ -885,64 +789,7 @@ class VotingManager {
         });
       });
       
-      // Add some styling for the new elements
-      if (!document.getElementById('bracket-song-styles')) {
-        const style = document.createElement('style');
-        style.id = 'bracket-song-styles';
-        style.textContent = `
-          .bracket-song {
-            cursor: pointer;
-            border: 2px solid transparent;
-            border-radius: 8px;
-            padding: 10px;
-            transition: all 0.2s;
-          }
-          .bracket-song:hover {
-            border-color: #007bff;
-            box-shadow: 0 0 8px rgba(0,123,255,0.5);
-          }
-          .bracket-song.selected {
-            border-color: #28a745;
-            box-shadow: 0 0 8px rgba(40,167,69,0.5);
-          }
-          .bracket-song-artist-container {
-            display: flex;
-            align-items: center;
-            margin-top: 10px;
-          }
-          .bracket-song-avatar {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            margin-right: 8px;
-          }
-          .bracket-song-artist {
-            margin: 0;
-            font-size: 14px;
-            color: #666;
-          }
-          .bracket-song-image {
-            width: 100%;
-            border-radius: 6px;
-          }
-          .bracket-song-title {
-            margin: 10px 0 0 0;
-          }
-          .bracket-song-link {
-            color: inherit;
-            text-decoration: none;
-          }
-          .bracket-song-link:hover {
-            text-decoration: underline;
-          }
-          .bracket-song-description {
-            margin: 5px 0 0 0;
-            font-size: 14px;
-            color: #666;
-          }
-        `;
-        document.head.appendChild(style);
-      }
+      // Styles for bracket songs moved to styles.css
       
       // Update the round title
       if (this.bracketRoundTitle) {
@@ -1105,34 +952,7 @@ class VotingManager {
     });
     
     // Add CSS to ensure any dynamically added buttons won't show
-    if (!document.getElementById('bracket-voting-style')) {
-      const style = document.createElement('style');
-      style.id = 'bracket-voting-style';
-      style.textContent = `
-        /* Make the bracket song cards more interactive */
-        .bracket-song {
-          cursor: pointer;
-          transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .bracket-song:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-        .bracket-song.selected {
-          border-color: #28a745;
-          box-shadow: 0 0 0 3px rgba(40,167,69,0.25);
-        }
-        .bracket-song-image {
-          border-radius: 8px;
-          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-          transition: transform 0.2s;
-        }
-        .bracket-song:hover .bracket-song-image {
-          transform: scale(1.03);
-        }
-      `;
-      document.head.appendChild(style);
-    }
+    // Styles for bracket voting moved to styles.css
   }
   
   // Update the bracket visualization
@@ -1280,84 +1100,7 @@ class VotingManager {
       });
     });
     
-    // Add some basic styling for the votes table
-    const style = document.createElement('style');
-    style.textContent = `
-      .bracket-votes-table-container {
-        margin-top: 20px;
-      }
-      .bracket-votes-table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      .bracket-votes-table th, .bracket-votes-table td {
-        padding: 10px;
-        text-align: left;
-        border-bottom: 1px solid #ddd;
-      }
-      .bracket-votes-table th {
-        font-weight: bold;
-        background-color: #f5f5f5;
-      }
-      .bracket-votes-table tbody tr {
-        cursor: pointer;
-      }
-      .bracket-votes-table tbody tr:hover {
-        background-color: #f9f9f9;
-      }
-      .bracket-votes-table tr.current-match {
-        background-color: #e6f7ff;
-      }
-      .bracket-table-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-      }
-      .bracket-table-song {
-        display: flex;
-        align-items: center;
-        padding: 5px;
-        border-radius: 4px;
-        width: 45%;
-      }
-      .bracket-table-song.selected-song {
-        background-color: #e6ffe6;
-        font-weight: bold;
-      }
-      .bracket-table-song-image {
-        width: 40px;
-        height: 40px;
-        object-fit: cover;
-        border-radius: 4px;
-        margin-right: 10px;
-      }
-      .bracket-table-song-info {
-        flex: 1;
-      }
-      .bracket-table-song-title {
-        font-weight: 500;
-      }
-      .bracket-table-song-artist-container {
-        display: flex;
-        align-items: center;
-        margin-top: 5px;
-      }
-      .bracket-table-song-avatar {
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        margin-right: 6px;
-      }
-      .bracket-table-song-artist {
-        font-size: 0.85em;
-        color: #666;
-      }
-      .bracket-table-vs {
-        font-weight: bold;
-        padding: 0 10px;
-      }
-    `;
-    document.head.appendChild(style);
+    // Styles for bracket votes table moved to styles.css
   }
   
   // Show admin controls if the user is the playlist owner
