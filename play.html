@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Animal Info with Vue</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    select {
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    .info-box {
+      margin-top: 20px;
+      border: 1px solid #ccc;
+      padding: 15px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h2>Select an Animal</h2>
+    <select v-model="selectedType">
+      <option disabled value="">-- Choose --</option>
+      <option value="dog">Dog</option>
+      <option value="cat">Cat</option>
+    </select>
+
+    <div class="info-box" v-if="animal">
+      <p><strong>{{ animal.getInfo() }}</strong></p>
+      <p>{{ animal.getDetails() }}</p>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed, watch } = Vue;
+
+    // Superclass
+    class Animal {
+      constructor(name) {
+        this.name = name;
+      }
+
+      getInfo() {
+        return `Animal name: ${this.name}`;
+      }
+    }
+
+    // Subclass: Dog
+    class Dog extends Animal {
+      constructor(name, barkSound) {
+        super(name);
+        this.barkSound = barkSound;
+      }
+
+      getDetails() {
+        return `Dog barks like: "${this.barkSound}"`;
+      }
+    }
+
+    // Subclass: Cat
+    class Cat extends Animal {
+      constructor(name, napSpot) {
+        super(name);
+        this.napSpot = napSpot;
+      }
+
+      getDetails() {
+        return `Cat loves to nap on: ${this.napSpot}`;
+      }
+    }
+
+    createApp({
+      setup() {
+        const selectedType = ref('');
+        const animal = ref(null);
+
+        watch(selectedType, (newType) => {
+          switch (newType) {
+            case 'dog':
+              animal.value = new Dog('Rover', 'Woof woof!');
+              break;
+            case 'cat':
+              animal.value = new Cat('Whiskers', 'the sunny windowsill');
+              break;
+            default:
+              animal.value = null;
+          }
+        });
+
+        return {
+          selectedType,
+          animal
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

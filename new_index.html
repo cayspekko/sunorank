@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SunoRank - Playlist Ranking App</title>
+    <!-- Base styling -->
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Shoelace components -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.4.0/dist/themes/light.css" />
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.4.0/dist/shoelace.js"></script>
+    
+    <!-- Playlist type styles -->
+    <link rel="stylesheet" href="css/styles.css" />
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    
+    <style>
+      /* Additional custom styles */
+      :root {
+        --sl-color-primary-500: #3b82f6; /* Blue color */
+        --sl-color-primary-600: #2563eb;
+        --sl-color-primary-700: #1d4ed8;
+      }
+      
+      body {
+        font-family: var(--sl-font-sans);
+        margin: 0;
+        padding: 0;
+        background-color: #f8f9fa;
+        color: #333;
+      }
+      
+      .app-container {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+      
+      .app-header {
+        background-color: white;
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      
+      .app-header h1 {
+        margin: 0;
+        color: var(--sl-color-primary-600);
+        font-size: 1.5rem;
+      }
+      
+      .user-profile, .login-header-button {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+      
+      .user-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      
+      .user-photo, .suno-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid var(--sl-color-primary-200);
+      }
+      
+      .user-name {
+        font-weight: 500;
+      }
+      
+      /* Verification panel styles */
+      .verification-code-display, .suno-url-input {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 1rem 0;
+        flex-wrap: nowrap;
+      }
+      
+      /* Dashboard & Playlist styles */
+      .dashboard-actions {
+        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: flex-start;
+      }
+      
+      .playlists-container {
+        margin-top: 1.5rem;
+      }
+      
+      .playlists-loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 2rem;
+        gap: 1rem;
+      }
+      
+      .playlists-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1rem;
+      }
+      
+      .playlist-card {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      
+      .playlist-card-header h3 {
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      .playlist-card-content {
+        flex: 1;
+      }
+      
+      .playlist-stats {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0;
+      }
+      
+      .playlist-card-actions {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+      
+      .playlist-debug {
+        background-color: #f0f9ff;
+        border: 1px solid #e0f2fe;
+        border-radius: 0.25rem;
+        padding: 0.5rem 1rem;
+        margin-bottom: 1rem;
+        font-family: monospace;
+      }
+      
+      main {
+        flex: 1;
+        padding: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+        width: 100%;
+      }
+      
+      .section {
+        background-color: white;
+        border-radius: 0.5rem;
+        padding: 2rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      
+      footer {
+        background-color: #f1f5f9;
+        text-align: center;
+        padding: 1rem;
+        margin-top: 2rem;
+        font-size: 0.9rem;
+        color: #64748b;
+      }
+      
+      .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+      }
+      
+      .modal-content {
+        background-color: white;
+        padding: 2rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        max-width: 400px;
+        width: 100%;
+        text-align: center;
+      }
+      
+      .loading-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .auth-container {
+        max-width: 600px;
+        margin: 0 auto;
+      }
+      
+      .auth-content {
+        text-align: left;
+        padding: 1rem;
+      }
+      
+      .auth-content h2 {
+        margin-top: 0;
+        margin-bottom: 1.5rem;
+        font-size: 1.8rem;
+      }
+      
+      .login-container {
+        margin-top: 2rem;
+      }
+      
+      .login-container p {
+        margin-bottom: 1rem;
+      }
+      
+      .google-signin-button {
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+      }
+    </style>
+</head>
+  <body>
+    <template id="main-template">
+        <div class="app-container">
+          <header class="app-header">
+            <h1>SunoRank (Vue Version)</h1>
+            
+            <!-- User Profile Section (When Logged In) -->
+            <div v-if="isLoggedIn()" class="user-profile">
+              <div class="user-info">
+                <sl-avatar :image="userPhotoUrl" :label="userDisplayName"></sl-avatar>
+                <span class="user-name">{{ userDisplayName }}</span>
+                
+                <!-- Suno Profile Link (if verified) -->
+                <a v-if="hasSunoProfile" :href="sunoProfileUrl" target="_blank" class="suno-profile-link">
+                  <sl-avatar :image="sunoAvatarUrl" label="Suno Profile"></sl-avatar>
+                </a>
+              </div>
+              <sl-button @click="logout" variant="primary" outline size="small">
+                <sl-icon slot="prefix" name="box-arrow-right"></sl-icon>
+                Logout
+              </sl-button>
+            </div>
+
+            <!-- Login Button (When NOT Logged In) -->
+            <div v-if="!isLoggedIn()" class="login-header-button">
+              <sl-button @click="login" variant="primary" size="small">
+                <sl-icon slot="prefix" name="google"></sl-icon>
+                Sign in
+              </sl-button>
+            </div>
+          </header>
+      
+          <main>
+            <!-- Auth Section -->
+            <section v-if="currentSection === 'auth-section' && !isLoggedIn()" id="auth-section" class="section">
+              <div class="auth-container">
+                <sl-card>
+                  <h2 slot="header">Welcome to SunoRank</h2>
+                  <div class="auth-content">
+                    <h3>Create and share ranked playlists of your Suno songs</h3>
+                    <p>SunoRank is a platform for Suno users to create and share ranked playlists of their favorite AI-generated songs.</p>
+                    
+                    <div class="login-container">
+                      <p>Please sign in with your Google account to get started:</p>
+                      <div class="google-signin-button">
+                        <sl-button @click="login" variant="primary" size="large">
+                          <sl-icon slot="prefix" name="google"></sl-icon>
+                          Sign in with Google
+                        </sl-button>
+                      </div>
+                    </div>
+                    
+                    <sl-alert v-if="authMessage" variant="danger" open>
+                      {{ authMessage }}
+                    </sl-alert>
+                  </div>
+                </sl-card>
+              </div>
+            </section>
+      
+            <!-- Verification Section -->
+            <section v-if="currentSection === 'verification-section' && isLoggedIn()" id="verification-section" class="section">
+              <div class="verification-container">
+                <sl-card>
+                  <h2 slot="header">Verify Your Suno Account</h2>
+                  <div>
+                    <p>Please add the following verification code to your Suno song tags to verify your account:</p>
+                    <sl-alert variant="primary" open>
+                      <sl-icon slot="icon" name="info-circle"></sl-icon>
+                      <strong>Verification steps:</strong>
+                      <ol class="verification-steps">
+                        <li>Create a new song on Suno or use an existing one</li>
+                        <li>Add the verification code to the song's tags field</li>
+                        <li>Submit the song URL or ID below to verify</li>
+                      </ol>
+                    </sl-alert>
+                    
+                    <!-- This will be populated by the verification service -->
+                    <div id="verification-code-display" class="verification-code-display">
+                      <sl-input id="verification-code" readonly size="large" style="flex: 1;">
+                        <sl-icon slot="prefix" name="key"></sl-icon>
+                      </sl-input>
+                      <sl-button id="copy-code-btn" variant="neutral">
+                        <sl-icon slot="prefix" name="clipboard"></sl-icon>
+                        Copy Code
+                      </sl-button>
+                    </div>
+                    
+                    <div class="suno-url-input">
+                      <sl-input id="suno-url-input" placeholder="Enter Suno song URL or ID" label="Suno Song URL or ID" style="flex: 1;">
+                        <sl-icon slot="prefix" name="music-note"></sl-icon>
+                      </sl-input>
+                      <sl-button id="verify-btn" variant="success">
+                        <sl-icon slot="prefix" name="check-circle"></sl-icon>
+                        Verify
+                      </sl-button>
+                    </div>
+                    
+                    <div id="verification-result"></div>
+                  </div>
+                </sl-card>
+              </div>
+            </section>
+            
+            <!-- Dashboard Section (Always rendered but only visible when active) -->
+            <section v-show="currentSection === 'dashboard-section'" id="dashboard-section" class="section">
+              <h2>Your Playlists</h2>
+              <div class="dashboard-actions">
+                <sl-button @click="goTo('create-playlist-section')" variant="primary">
+                  <sl-icon slot="prefix" name="plus-circle"></sl-icon>
+                  Create New Playlist
+                </sl-button>
+              </div>
+              <!-- Vue Playlist Container -->
+              <div class="playlists-container">
+                <!-- Loading State -->
+                <div v-if="playlistsLoading" class="playlists-loading">
+                  <sl-spinner></sl-spinner>
+                  <p>Loading your playlists...</p>
+                </div>
+                
+                <!-- No Playlists Found -->
+                <sl-alert v-if="!playlistsLoading && noPlaylistsFound" variant="neutral" open>
+                  <sl-icon slot="icon" name="info-circle"></sl-icon>
+                  <strong>No playlists yet</strong>
+                  <p>You haven't created any playlists yet. Click "Create New Playlist" to get started!</p>
+                </sl-alert>
+                
+                <!-- Error Message -->
+                <sl-alert v-if="!playlistsLoading && playlistError" variant="danger" open>
+                  <sl-icon slot="icon" name="exclamation-triangle"></sl-icon>
+                  <strong>Error</strong>
+                  <p>{{ playlistError }}</p>
+                </sl-alert>
+                <!-- Playlist Type Filters (when playlists exist) -->
+                <div v-if="playlists && playlists.length > 0" class="playlist-filters">
+                  <div class="filter-buttons">
+                    <sl-button-group label="Filter by type">
+                      <sl-button size="small" pill>All</sl-button>
+                      <sl-button size="small" pill>Standard</sl-button>
+                      <sl-button size="small" pill>Ranked</sl-button>
+                      <sl-button size="small" pill>Collaborative</sl-button>
+                    </sl-button-group>
+                  </div>
+                </div>
+                
+                <!-- Playlists Grid - Using OOP approach with templates based on type -->
+                <div v-if="playlists && playlists.length > 0" class="playlists-grid">
+                  <sl-card 
+                    v-for="playlist in playlists" 
+                    :key="playlist.id" 
+                    class="playlist-card"
+                    :class="'playlist-type-' + playlist.type"
+                  >
+                    <!-- Playlist Header with Type Badge -->
+                    <div slot="header" class="playlist-card-header">
+                      <h3>{{ playlist.name }}</h3>
+                      <sl-badge pill>{{ playlist.typeLabel }}</sl-badge>
+                    </div>
+                    
+                    <!-- Custom Content Based on Type -->
+                    <div class="playlist-card-content">
+                      <!-- Standard Stats -->
+                      <p class="playlist-stats">
+                        <!-- Dynamic Badge Based on Type -->
+                        <sl-badge :variant="playlist.getCardTemplate().badgeColor" pill>
+                          <sl-icon slot="prefix" :name="playlist.getCardTemplate().icon"></sl-icon>
+                          {{ playlist.getCardTemplate().description }}
+                        </sl-badge>
+                        
+                        <!-- Vote Count Badge -->
+                        <sl-badge variant="success" pill>
+                          <sl-icon slot="prefix" name="star"></sl-icon>
+                          {{ playlist.voteCount }} votes
+                        </sl-badge>
+                      </p>
+                      
+                      <!-- Collaborative-specific UI (only for collaborative playlists) -->
+                      <div v-if="playlist.type === 'collaborative'" class="collaborators">
+                        <p class="collaborator-count">{{ playlist.collaboratorCount }} collaborators</p>
+                      </div>
+                    </div>
+                    
+                    <!-- Card Footer with Actions -->
+                    <div slot="footer" class="playlist-card-actions">
+                      <!-- Common Actions -->
+                      <sl-button @click="viewPlaylist(playlist.id)" variant="primary" size="small">
+                        <sl-icon slot="prefix" name="eye"></sl-icon>
+                        View
+                      </sl-button>
+                      <sl-button @click="sharePlaylist(playlist.id)" variant="neutral" size="small">
+                        <sl-icon slot="prefix" name="share"></sl-icon>
+                        Share
+                      </sl-button>
+                      
+                      <!-- Type-Specific Actions -->
+                      <template v-if="playlist.type === 'ranked'">
+                        <sl-button @click="votePlaylist(playlist.id)" variant="success" size="small">
+                          <sl-icon slot="prefix" name="hand-thumbs-up"></sl-icon>
+                          Vote
+                        </sl-button>
+                      </template>
+                      
+                      <!-- Delete Action -->
+                      <sl-button @click="confirmDeletePlaylist(playlist)" variant="danger" outline size="small">
+                        <sl-icon slot="prefix" name="trash"></sl-icon>
+                      </sl-button>
+                    </div>
+                  </sl-card>
+                </div>
+              </div>
+            </section>
+      
+            <!-- Playlist Detail Section -->
+            <section v-if="currentSection === 'playlist-detail-section' && isLoggedIn()" id="playlist-detail-section" class="section">
+              <div class="section-header">
+                <button class="back-button" @click="goTo('dashboard-section')">
+                  <sl-icon name="arrow-left"></sl-icon> Back to Dashboard
+                </button>
+                <h2 v-if="currentPlaylist">{{ currentPlaylist.name }}</h2>
+              </div>
+              
+              <!-- Playlist Info -->
+              <div v-if="currentPlaylist" class="playlist-info">
+                <div class="playlist-header">
+                  <sl-badge pill :variant="currentPlaylist.getCardTemplate().badgeColor">
+                    <sl-icon slot="prefix" :name="currentPlaylist.getCardTemplate().icon"></sl-icon>
+                    {{ currentPlaylist.typeLabel }} Playlist
+                  </sl-badge>
+                  
+                  <sl-badge variant="success" pill>
+                    <sl-icon slot="prefix" name="star"></sl-icon>
+                    {{ currentPlaylist.voteCount }} votes
+                  </sl-badge>
+                  
+                  <div v-if="currentPlaylist.isVotingActive" class="voting-status active">
+                    <sl-badge variant="success" pill>
+                      <sl-icon slot="prefix" name="check-circle"></sl-icon>
+                      Voting Active
+                    </sl-badge>
+                  </div>
+                  <div v-else class="voting-status inactive">
+                    <sl-badge variant="neutral" pill>
+                      <sl-icon slot="prefix" name="x-circle"></sl-icon>
+                      Voting Inactive
+                    </sl-badge>
+                  </div>
+                </div>
+                
+                <!-- Tab Interface -->
+                <sl-tab-group placement="start">
+                  <!-- Current Rank Tab -->
+                  <sl-tab slot="nav" panel="rank">Current Rank</sl-tab>
+                  <sl-tab-panel name="rank">
+                    <div class="rank-list">
+                      <h3>Current Rankings</h3>
+                      
+                      <!-- Standard Playlist Ranking (Star Ratings) -->
+                      <div v-if="currentPlaylist.type === 'standard'" class="standard-ranking">
+                        <div v-if="playlistRanking && playlistRanking.results" class="ranking-list">
+                          <div v-for="(result, index) in playlistRanking.results" :key="result.songId" class="ranking-item">
+                            <div class="rank-number">#{{ index + 1 }}</div>
+                            <div class="song-info">
+                              <img :src="result.song.thumbnail || 'https://via.placeholder.com/50'" alt="Song thumbnail" class="song-thumbnail">
+                              <div class="song-details">
+                                <h4>{{ result.song.title }}</h4>
+                                <p>{{ result.song.artist }}</p>
+                              </div>
+                            </div>
+                            <div class="song-rating">
+                              <sl-rating readonly :value="result.averageRating"></sl-rating>
+                              <span class="rating-value">{{ result.averageRating.toFixed(1) }}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div v-else class="no-ranking">
+                          <p>No ratings yet. Be the first to vote!</p>
+                        </div>
+                      </div>
+                      
+                      <!-- Ranked Playlist Ranking -->
+                      <div v-if="currentPlaylist.type === 'ranked'" class="ranked-choice-ranking">
+                        <div v-if="playlistRanking && playlistRanking.results" class="ranking-list">
+                          <div v-for="(result, index) in playlistRanking.results" :key="result.songId" class="ranking-item">
+                            <div class="rank-number">#{{ index + 1 }}</div>
+                            <div class="song-info">
+                              <img :src="result.song.thumbnail || 'https://via.placeholder.com/50'" alt="Song thumbnail" class="song-thumbnail">
+                              <div class="song-details">
+                                <h4>{{ result.song.title }}</h4>
+                                <p>{{ result.song.artist }}</p>
+                              </div>
+                            </div>
+                            <div class="song-points">
+                              <span class="points-value">{{ result.points }} points</span>
+                              <sl-progress-bar :value="result.percentage"></sl-progress-bar>
+                            </div>
+                          </div>
+                        </div>
+                        <div v-else class="no-ranking">
+                          <p>No votes yet. Be the first to vote!</p>
+                        </div>
+                      </div>
+                      
+                      <!-- Tournament Bracket Ranking -->
+                      <div v-if="currentPlaylist.type === 'collaborative'" class="tournament-ranking">
+                        <div v-if="tournamentStatus && tournamentStatus.status === 'active'" class="tournament-info">
+                          <h4>Tournament Status</h4>
+                          <p>Round {{ tournamentStatus.currentRound }} of {{ tournamentStatus.roundsTotal }}</p>
+                          <div class="tournament-bracket">
+                            <!-- Simplified bracket visualization would go here -->
+                            <p>Tournament visualization</p>
+                          </div>
+                        </div>
+                        <div v-else class="no-ranking">
+                          <p>Tournament not started yet.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </sl-tab-panel>
+                  
+                  <!-- Vote Tab -->
+                  <sl-tab slot="nav" panel="vote">Vote</sl-tab>
+                  <sl-tab-panel name="vote">
+                    <div class="voting-options">
+                      <h3>Cast Your Vote</h3>
+                      <div v-if="currentPlaylist.isVotingActive">
+                        <sl-button @click="voteOnPlaylist(currentPlaylist.id)" variant="success" size="large">
+                          <sl-icon slot="prefix" name="hand-thumbs-up"></sl-icon>
+                          Vote Now
+                        </sl-button>
+                        <p class="voting-info">
+                          <sl-icon name="info-circle"></sl-icon>
+                          Voting for this playlist is currently open.
+                          <span v-if="currentPlaylist.votingDeadline">
+                            Deadline: {{ formatDeadline(currentPlaylist.votingDeadline) }}
+                          </span>
+                        </p>
+                      </div>
+                      <div v-else class="voting-inactive">
+                        <sl-alert variant="neutral" open>
+                          <sl-icon slot="icon" name="info-circle"></sl-icon>
+                          <strong>Voting is currently closed</strong>
+                          <p>The playlist owner has not enabled voting, or the voting period has ended.</p>
+                        </sl-alert>
+                      </div>
+                    </div>
+                  </sl-tab-panel>
+                </sl-tab-group>
+                
+                <!-- Playlist Actions -->
+                <div class="playlist-actions">
+                  <sl-button @click="sharePlaylist(currentPlaylist.id)" variant="neutral">
+                    <sl-icon slot="prefix" name="share"></sl-icon>
+                    Share
+                  </sl-button>
+                  <sl-button v-if="canEditPlaylist(currentPlaylist)" @click="editPlaylist(currentPlaylist.id)" variant="primary">
+                    <sl-icon slot="prefix" name="pencil"></sl-icon>
+                    Edit
+                  </sl-button>
+                  <sl-button v-if="canEditPlaylist(currentPlaylist)" @click="confirmDeletePlaylist(currentPlaylist)" variant="danger" outline>
+                    <sl-icon slot="prefix" name="trash"></sl-icon>
+                    Delete
+                  </sl-button>
+                </div>
+              </div>
+              
+              <!-- Loading State -->
+              <div v-if="isLoading" class="loading-container">
+                <sl-spinner></sl-spinner>
+                <p>Loading playlist...</p>
+              </div>
+              
+              <!-- Error State -->
+              <sl-alert v-if="errorMessage" variant="danger" open>
+                <sl-icon slot="icon" name="exclamation-triangle"></sl-icon>
+                <strong>Error</strong>
+                <p>{{ errorMessage }}</p>
+              </sl-alert>
+            </section>
+            
+            <!-- Create Playlist Section (Only show when logged in) -->
+            <section v-if="currentSection === 'create-playlist-section' && isLoggedIn()" id="create-playlist-section" class="section">
+              <div class="section-header">
+                <button class="back-button" @click="goTo('dashboard-section')">
+                  <sl-icon name="arrow-left"></sl-icon> Back to Dashboard
+                </button>
+                <h2>{{ formData.isEditMode ? 'Edit Playlist' : 'Create New Playlist' }}</h2>
+              </div>
+              
+              <!-- Step 1: Enter Suno Playlist URL -->
+              <sl-card class="create-playlist-card">
+                <h3 slot="header">Step 1: Enter Suno Playlist URL</h3>
+                
+                <div class="form-group">
+                  <sl-input 
+                    v-model="formData.playlistUrl" 
+                    placeholder="https://suno.com/playlist/..." 
+                    label="Suno Playlist URL" 
+                    :disabled="formData.items.length > 0"
+                  ></sl-input>
+                  <sl-button @click="fetchSunoPlaylist" variant="primary" :loading="isLoading" :disabled="!formData.playlistUrl || formData.items.length > 0">
+                    <sl-icon slot="prefix" name="cloud-download"></sl-icon>
+                    Fetch Playlist
+                  </sl-button>
+                </div>
+                
+                <!-- Error Message -->
+                <sl-alert v-if="errorMessage" variant="danger" open>
+                  <sl-icon slot="icon" name="exclamation-triangle"></sl-icon>
+                  <strong>Error</strong>
+                  <p>{{ errorMessage }}</p>
+                </sl-alert>
+              </sl-card>
+              
+              <!-- Step 2: Customize Playlist (Only show when songs loaded) -->
+              <sl-card v-if="formData.items.length > 0" class="create-playlist-card">
+                <h3 slot="header">Step 2: Customize Playlist</h3>
+                
+                <!-- Playlist Name -->
+                <div class="form-group">
+                  <sl-input 
+                    v-model="formData.name" 
+                    placeholder="Playlist Name" 
+                    label="Playlist Name" 
+                  ></sl-input>
+                </div>
+                
+                <!-- Playlist Type Selection -->
+                <div class="form-group">
+                  <sl-select v-model="formData.rankingType" label="Ranking Type">
+                    <sl-option value="none">Standard Playlist (No Ranking)</sl-option>
+                    <sl-option value="ranked-choice">Ranked Choice Voting</sl-option>
+                    <sl-option value="tournament">Tournament Bracket</sl-option>
+                  </sl-select>
+                </div>
+                
+                <!-- Voting Deadline (Only for ranking playlists) -->
+                <div v-if="formData.rankingType !== 'none'" class="form-group">
+                  <sl-input 
+                    v-model="formData.votingDeadline" 
+                    type="datetime-local" 
+                    label="Voting Deadline (Optional)"
+                  ></sl-input>
+                </div>
+                
+                <!-- Songs Preview -->
+                <h4>Songs in Playlist ({{ formData.items.length }})</h4>
+                <div class="songs-preview">
+                  <div v-for="(song, index) in formData.items" :key="song.id" class="song-item">
+                    <div class="song-thumbnail">
+                      <img :src="song.coverImage" :alt="song.title + ' cover'">
+                    </div>
+                    <div class="song-info">
+                      <a :href="song.sunoUrl" target="_blank" class="song-title">{{ song.title }}</a>
+                      <div class="song-author">
+                        <img :src="song.authorAvatar" :alt="song.author" class="author-avatar">
+                        <span>{{ song.author }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="button-group">
+                  <sl-button @click="savePlaylist" variant="success" :loading="isLoading">
+                    <sl-icon slot="prefix" name="save"></sl-icon>
+                    {{ formData.isEditMode ? 'Update Playlist' : 'Create Playlist' }}
+                  </sl-button>
+                  <sl-button @click="resetCreateForm" variant="neutral">
+                    <sl-icon slot="prefix" name="x-circle"></sl-icon>
+                    Cancel
+                  </sl-button>
+                </div>
+              </sl-card>
+            </section>
+            
+            <!-- Playlist Detail Section -->
+            <section v-if="currentSection === 'playlist-detail-section'" id="playlist-detail-section" class="section">
+              <h2>Playlist Details</h2>
+              <div id="playlist-detail-container"></div>
+            </section>
+            
+            <!-- Voting Section -->
+            <section v-if="currentSection === 'voting-section'" id="voting-section" class="section">
+              <h2>Vote on Playlist</h2>
+              <div id="voting-container"></div>
+            </section>
+          </main>
+      
+          <footer>
+            <p>&copy; 2025 SunoRank - Create and share ranked playlists for your Suno songs</p>
+          </footer>
+      
+          <!-- Loading Modal -->
+          <sl-dialog v-if="loading" id="loading-modal" :open="loading" no-header>
+            <div class="loading-content">
+              <sl-spinner style="font-size: 3rem;"></sl-spinner>
+              <p>{{ loadingMessage }}</p>
+            </div>
+          </sl-dialog>
+      
+          <!-- Message Modal -->
+          <sl-dialog v-if="modalMessage" id="message-modal" :open="!!modalMessage" label="Message">
+            <p>{{ modalMessage }}</p>
+            <sl-button slot="footer" variant="primary" @click="modalMessage = ''">OK</sl-button>
+          </sl-dialog>
+        </div>
+    </template>
+
+    <div id="app">
+      <vue-app></vue-app>
+    </div>
+  
+    <!-- Vue 3 via CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  
+    <!-- Your existing Firebase SDKs still apply -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/verification.js"></script>
+    <!-- <script src="js/playlist.js"></script> -->
+    <!-- <script src="js/voting.js"></script> -->
+  
+    <!-- New Vue App Logic -->
+    <script type="module" src="js/app.vue.js"></script>
+  </body>
+</html>

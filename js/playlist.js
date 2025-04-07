@@ -1091,26 +1091,11 @@ class PlaylistManager {
     const tabName = button.getAttribute('data-tab');
     const tabContent = document.getElementById(`${tabName}-tab`);
     
+    // Show tab content
     if (tabContent) {
       tabContent.classList.remove('hidden');
       
-      // Perform tab-specific actions
-      if (tabName === 'voting') {
-        // If user is not logged in, show login prompt instead of voting interface
-        const votingInterface = document.getElementById('voting-interface');
-        const loginPrompt = document.getElementById('voting-login-prompt');
-        
-        if (votingInterface && loginPrompt) {
-          if (authService.isLoggedIn()) {
-            votingInterface.classList.remove('hidden');
-            loginPrompt.classList.add('hidden');
-            votingManager.setupVotingItems(this.currentPlaylist);
-          } else {
-            votingInterface.classList.add('hidden');
-            loginPrompt.classList.remove('hidden');
-          }
-        }
-      } else if (tabName === 'share' && this.currentPlaylist) {
+      if (tabName === 'share' && this.currentPlaylist) {
         // Ensure share link is up to date
         const shareUrl = `${window.location.origin}${window.location.pathname}#playlist?id=${this.currentPlaylist.id}`;
         this.shareLink.value = shareUrl;
