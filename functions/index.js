@@ -24,7 +24,19 @@ exports.generateVerificationCode = regionalFunctions.https.onCall(async (data, c
   }
 
   const userId = context.auth.uid;
-  
+
+  // Invalidate all previous codes for this user before generating a new one
+  const db = admin.firestore();
+  const codesRef = db.collection('verificationCodes');
+  const existingCodes = await codesRef.where('userId', '==', userId).where('used', '==', false).get();
+  const batch = db.batch();
+  existingCodes.forEach(doc => {
+    batch.update(doc.ref, { used: true, invalidatedAt: admin.firestore.FieldValue.serverTimestamp() });
+  });
+  if (!existingCodes.empty) {
+    await batch.commit();
+  }
+
   // Generate a random code in the SUNORANK_XxXxXxXxX format
   const generateRandomString = (length) => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

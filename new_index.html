@@ -276,8 +276,21 @@
           </header>
       
           <main>
-            <!-- Auth Section -->
-            <section v-if="currentSection === 'auth-section' && !isLoggedIn()" id="auth-section" class="section">
+            <section id="debug-section" style="background:#222; color:#fff; padding:1em; margin-top:1em;">
+              <h3>Debug Info</h3>
+              <div>Current Section: {{ currentSection }}</div>
+              <div>User Authenticated: {{ isLoggedIn() }}</div>
+              <div>Current User: {{ currentUser ? currentUser.displayName : 'None' }}</div>
+              <!-- <div>Form Playlist URL: {{ formData.playlistUrl }}</div> -->
+              <!-- <div>Form Items Count: {{ formData.items.length }}</div> -->
+              <div>Current Playlist ID: {{ currentPlaylist ? currentPlaylist.id : 'None' }}</div>
+              <div>Loading: {{ isLoading }}</div>
+              <div>Error: {{ errorMessage }}</div>
+              <div>Verification Code: {{ verificationCode }}</div>
+              <div>Verification Status: {{ userVerified }}</div>
+            </section>
+            
+            <section id="auth-section" class="section" v-if="currentSection === 'auth-section'">
               <div class="auth-container">
                 <sl-card>
                   <h2 slot="header">Welcome to SunoRank</h2>
@@ -304,7 +317,7 @@
             </section>
       
             <!-- Verification Section -->
-            <section v-if="currentSection === 'verification-section' && isLoggedIn()" id="verification-section" class="section">
+            <section id="verification-section" class="section" v-if="currentSection === 'verification-section'">
               <div class="verification-container">
                 <sl-card>
                   <h2 slot="header">Verify Your Suno Account</h2>
@@ -320,28 +333,34 @@
                       </ol>
                     </sl-alert>
                     
-                    <!-- This will be populated by the verification service -->
-                    <div id="verification-code-display" class="verification-code-display">
-                      <sl-input id="verification-code" readonly size="large" style="flex: 1;">
+                    <!-- Vue-driven verification UI -->
+                    <div class="verification-actions" style="margin-top: 1.5rem;">
+                      <sl-button @click="generateVerificationCode" :disabled="isVerifying" variant="primary">
                         <sl-icon slot="prefix" name="key"></sl-icon>
-                      </sl-input>
-                      <sl-button id="copy-code-btn" variant="neutral">
-                        <sl-icon slot="prefix" name="clipboard"></sl-icon>
-                        Copy Code
+                        Generate Verification Code
                       </sl-button>
+                      <span v-if="verificationCode" class="verification-code-display" style="margin-left: 1em;">
+                        <strong>Your code:</strong> <code>{{ verificationCode }}</code>
+                      </span>
                     </div>
-                    
-                    <div class="suno-url-input">
-                      <sl-input id="suno-url-input" placeholder="Enter Suno song URL or ID" label="Suno Song URL or ID" style="flex: 1;">
+                    <div class="suno-url-input" style="margin-top: 1.5rem; display: flex; gap: 1em; align-items: flex-end;">
+                      <sl-input v-model="verificationSongUrl" placeholder="Enter Suno song URL or ID" label="Suno Song URL or ID" style="flex: 1;">
                         <sl-icon slot="prefix" name="music-note"></sl-icon>
                       </sl-input>
-                      <sl-button id="verify-btn" variant="success">
+                      <sl-button @click="verifySunoSong" :disabled="isVerifying || !verificationCode" variant="success" style="margin-bottom: 1px;">
                         <sl-icon slot="prefix" name="check-circle"></sl-icon>
                         Verify
                       </sl-button>
                     </div>
-                    
-                    <div id="verification-result"></div>
+                    <div v-if="verificationStatus" style="margin-top: 1em;">
+                      <strong>Status:</strong> {{ verificationStatus }}
+                    </div>
+                    <div v-if="verificationUserHandle" style="margin-top: 0.5em;">
+                      <strong>User Handle:</strong> {{ verificationUserHandle }}
+                    </div>
+                    <div v-if="verificationError" style="color: red; margin-top: 0.5em;">
+                      {{ verificationError }}
+                    </div>
                   </div>
                 </sl-card>
               </div>
@@ -382,7 +401,7 @@
                   <div class="filter-buttons">
                     <sl-button-group label="Filter by type">
                       <sl-button size="small" pill>All</sl-button>
-                      <sl-button size="small" pill>Standard</sl-button>
+                      <sl-button size="small" pill>Star</sl-button>
                       <sl-button size="small" pill>Ranked</sl-button>
                       <sl-button size="small" pill>Collaborative</sl-button>
                     </sl-button-group>
@@ -405,7 +424,7 @@
                     
                     <!-- Custom Content Based on Type -->
                     <div class="playlist-card-content">
-                      <!-- Standard Stats -->
+                      <!-- Star Stats -->
                       <p class="playlist-stats">
                         <!-- Dynamic Badge Based on Type -->
                         <sl-badge :variant="playlist.getCardTemplate().badgeColor" pill>
@@ -500,13 +519,13 @@
                     <div class="rank-list">
                       <h3>Current Rankings</h3>
                       
-                      <!-- Standard Playlist Ranking (Star Ratings) -->
-                      <div v-if="currentPlaylist.type === 'standard'" class="standard-ranking">
+                      <!-- Star Playlist Ranking (Star Ratings) -->
+                      <div v-if="currentPlaylist.type === 'star'" class="star-ranking">
                         <div v-if="playlistRanking && playlistRanking.results" class="ranking-list">
                           <div v-for="(result, index) in playlistRanking.results" :key="result.songId" class="ranking-item">
                             <div class="rank-number">#{{ index + 1 }}</div>
                             <div class="song-info">
-                              <img :src="result.song.thumbnail || 'https://via.placeholder.com/50'" alt="Song thumbnail" class="song-thumbnail">
+                              <img :src="result.song.coverImage || 'https://placehold.co/250x250?text=not+found'" alt="Song thumbnail" class="song-thumbnail">
                               <div class="song-details">
                                 <h4>{{ result.song.title }}</h4>
                                 <p>{{ result.song.artist }}</p>
@@ -529,14 +548,14 @@
                           <div v-for="(result, index) in playlistRanking.results" :key="result.songId" class="ranking-item">
                             <div class="rank-number">#{{ index + 1 }}</div>
                             <div class="song-info">
-                              <img :src="result.song.thumbnail || 'https://via.placeholder.com/50'" alt="Song thumbnail" class="song-thumbnail">
+                              <img :src="result.song.coverImage || 'https://placehold.co/250x250?text=not+found'" alt="Song thumbnail" class="song-thumbnail">
                               <div class="song-details">
                                 <h4>{{ result.song.title }}</h4>
                                 <p>{{ result.song.artist }}</p>
                               </div>
                             </div>
                             <div class="song-points">
-                              <span class="points-value">{{ result.points }} points</span>
+                              <span class="points-value">{{ result.points || 0 }} points</span>
                               <sl-progress-bar :value="result.percentage"></sl-progress-bar>
                             </div>
                           </div>
@@ -673,7 +692,7 @@
                 <!-- Playlist Type Selection -->
                 <div class="form-group">
                   <sl-select v-model="formData.rankingType" label="Ranking Type">
-                    <sl-option value="none">Standard Playlist (No Ranking)</sl-option>
+                    <sl-option value="none">Star Playlist</sl-option>
                     <sl-option value="ranked-choice">Ranked Choice Voting</sl-option>
                     <sl-option value="tournament">Tournament Bracket</sl-option>
                   </sl-select>
@@ -761,8 +780,8 @@
   
     <!-- Your existing Firebase SDKs still apply -->
     <script src="js/config.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/verification.js"></script>
+    <!-- <script src="js/auth.js"></script> -->
+    <!-- <script src="js/verification.js"></script> -->
     <!-- <script src="js/playlist.js"></script> -->
     <!-- <script src="js/voting.js"></script> -->
   

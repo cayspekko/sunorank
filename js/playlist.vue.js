@@ -13,7 +13,7 @@ class Playlist {
     this.createdBy = data.createdBy;
     this.createdAt = data.createdAt;
     this.voteCount = data.voteCount || 0;
-    this.type = data.type || 'standard';
+    this.type = data.type || 'star';
     this.metadata = data.metadata || {};
     
     // Voting related properties
@@ -63,7 +63,10 @@ class Playlist {
       items: this.items.map(item => ({
         id: item.id,
         title: item.title,
-        artist: item.artist
+        artist: item.artist,
+        thumbnail: item.coverImage || item.thumbnail, // Include song cover image as thumbnail
+        votes: 0, // Initialize votes to 0
+        rating: 0 // Initialize rating to 0
       })),
       // Metadata
       metadata: {
@@ -72,7 +75,8 @@ class Playlist {
         votingMethod: this.votingMethod,
         createdBy: this.createdBy,
         createdAt: this.createdAt,
-        isVotingActive: this.isVotingActive
+        isVotingActive: this.isVotingActive,
+        totalVotes: 0 // Initialize total votes
       },
       // Subclass-specific data
       votingInterface: this.renderVotingInterface(),
@@ -102,15 +106,15 @@ class Playlist {
 }
 
 /**
- * Standard Playlist - the default playlist type
+ * StarPlaylist - Star rating playlist type
  */
-class StandardPlaylist extends Playlist {
+class StarPlaylist extends Playlist {
   constructor(data) {
     super(data);
-    this.type = 'standard';
+    this.type = 'star';
   }
   
-  // Standard playlists use star rating voting by default
+  // Star playlists use star rating voting 
   get votingMethod() {
     return 'star-rating';
   }
@@ -119,28 +123,34 @@ class StandardPlaylist extends Playlist {
   async getVotingResults() {
     if (!this.id) return null;
     
+    // Initialize results with all songs (0 votes by default)
+    const results = {};
+    
+    // Initialize with all songs
+    this.items.forEach(item => {
+      results[item.id] = { 
+        songId: item.id, 
+        song: item, 
+        totalStars: 0, 
+        averageRating: 0, 
+        voteCount: 0 
+      };
+    });
+    
     try {
       const db = firebase.firestore();
       const votesSnapshot = await db.collection('playlists').doc(this.id).collection('votes').get();
       
       if (votesSnapshot.empty) {
-        return { status: 'no-votes' };
+        return { 
+          status: 'no-votes',
+          results: Object.values(results), // Return all songs with 0 votes
+          voteCount: 0
+        };
       }
       
       // Aggregate the star ratings
       const voteData = votesSnapshot.docs.map(doc => doc.data());
-      const results = {};
-      
-      // Initialize results object with all songs
-      this.items.forEach(item => {
-        results[item.id] = { 
-          songId: item.id, 
-          song: item, 
-          totalStars: 0, 
-          averageRating: 0, 
-          voteCount: 0 
-        };
-      });
       
       // Aggregate star ratings
       voteData.forEach(vote => {
@@ -170,16 +180,21 @@ class StandardPlaylist extends Playlist {
         voteCount: voteData.length
       };
     } catch (error) {
-      console.error('Error getting voting results:', error);
-      return { status: 'error', message: error.message };
+      console.error('Error getting star voting results:', error);
+      return { 
+        status: 'error', 
+        message: error.message,
+        results: Object.values(results), // Return all songs with 0 votes on error
+        voteCount: 0
+      };
     }
   }
   
   getCardTemplate() {
     return {
       ...super.getCardTemplate(),
-      icon: 'music-note',
-      badgeColor: 'primary',
+      icon: 'star',
+      badgeColor: 'warning',
       votingMethod: this.votingMethod
     };
   }
@@ -209,31 +224,35 @@ class RankedPlaylist extends Playlist {
   async getVotingResults() {
     if (!this.id) return null;
     
+    // Initialize results with all songs (0 votes by default)
+    const results = {};
+      
+    // Initialize with all songs
+    this.items.forEach(item => {      
+      results[item.id] = { 
+        songId: item.id, 
+        song: item, 
+        firstPlaceVotes: 0,
+        secondPlaceVotes: 0,
+        thirdPlaceVotes: 0,
+        points: 0 // Weighted scoring: 3pts for 1st, 2pts for 2nd, 1pt for 3rd
+      };
+    });
+    
     try {
       const db = firebase.firestore();
       const votesSnapshot = await db.collection('playlists').doc(this.id).collection('votes').get();
       
       if (votesSnapshot.empty) {
-        return { status: 'no-votes' };
+        return { 
+          status: 'no-votes',
+          results: Object.values(results), // Return all songs with 0 votes
+          voteCount: 0
+        };
       }
       
       // Aggregate the ranked choice votes
       const voteData = votesSnapshot.docs.map(doc => doc.data());
-      
-      // Create a results object keyed by song ID
-      const results = {};
-      
-      // Initialize with all songs
-      this.items.forEach(item => {
-        results[item.id] = { 
-          songId: item.id, 
-          song: item, 
-          firstPlaceVotes: 0,
-          secondPlaceVotes: 0,
-          thirdPlaceVotes: 0,
-          points: 0 // Weighted scoring: 3pts for 1st, 2pts for 2nd, 1pt for 3rd
-        };
-      });
       
       // Count the votes
       voteData.forEach(vote => {
@@ -277,7 +296,12 @@ class RankedPlaylist extends Playlist {
       };
     } catch (error) {
       console.error('Error getting ranked voting results:', error);
-      return { status: 'error', message: error.message };
+      return { 
+        status: 'error', 
+        message: error.message,
+        results: Object.values(results), // Return all songs with 0 votes on error
+        voteCount: 0
+      };
     }
   }
   
@@ -471,13 +495,24 @@ class CollaborativePlaylist extends Playlist {
   
   // Get the current tournament status
   getCurrentTournamentStatus() {
+    // Always include songs with default zero votes
+    const allSongs = this.items.map(item => ({
+      id: item.id,
+      song: item,
+      votes: 0,
+      wins: 0,
+      losses: 0
+    }));
+    
     // Find the current round
     const currentRound = this.tournamentRounds.find(r => r.round === this.currentRound);
     
     if (!currentRound) {
       return {
         status: 'not-started',
-        message: 'Tournament has not been initialized'
+        message: 'Tournament has not been initialized',
+        songs: allSongs, // Include all songs even when tournament hasn't started
+        voteCount: 0
       };
     }
     
@@ -490,7 +525,8 @@ class CollaborativePlaylist extends Playlist {
       deadline: currentRound.deadline,
       isComplete: roundsRemaining <= 0,
       roundsRemaining,
-      roundsCompleted: this.currentRound - 1
+      roundsCompleted: this.currentRound - 1,
+      songs: allSongs // Always include songs
     };
   }
   
@@ -551,12 +587,13 @@ class CollaborativePlaylist extends Playlist {
  */
 function createPlaylist(data) {
   switch(data.type) {
-    case 'ranked':
-      return new RankedPlaylist(data);
+    case 'star':
+      return new StarPlaylist(data);
     case 'collaborative':
       return new CollaborativePlaylist(data);
     default:
-      return new StandardPlaylist(data);
+      // Ranked is now the default type
+      return new RankedPlaylist(data);
   }
 }
 
@@ -564,11 +601,12 @@ function createPlaylist(data) {
  * Factory function to create a new playlist based on form data
  */
 function createPlaylistObject(formData, userId) {
-  let type = 'standard';
+  // Default type is now ranked
+  let type = 'ranked';
   
   // Determine playlist type based on properties
-  if (formData.rankingType && formData.rankingType !== 'none') {
-    type = 'ranked';
+  if (formData.votingMethod === 'star-rating') {
+    type = 'star';
   } else if (formData.collaborators && formData.collaborators.length > 0) {
     type = 'collaborative';
   }

@@ -185,12 +185,12 @@
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
   }
   
-  /* Style for standard playlists */
-  .playlist-type-standard {
+  /* Style for star playlists */
+  .playlist-type-star {
     border-left: 4px solid var(--sl-color-primary-600);
   }
   
-  .playlist-type-standard .playlist-card-header {
+  .playlist-type-star .playlist-card-header {
     background: linear-gradient(to right, rgba(var(--sl-color-primary-500-rgb), 0.1), transparent);
   }
   
