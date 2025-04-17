@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SunoRank - Playlist Ranking App</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>SunoRank</h1>
+            <div id="user-profile" class="hidden">
+                <span id="user-name"></span>
+                <img id="user-photo" src="" alt="Profile Photo">
+                <!-- Suno Profile Link/Avatar (only shown when verified) -->
+                <a id="suno-profile-link" class="hidden" href="#" target="_blank">
+                    <img id="suno-avatar" src="" alt="Suno Avatar" title="View Suno Profile">
+                </a>
+                <button id="logout-btn">Logout</button>
+            </div>
+            <div id="login-container">
+                <button id="login-btn">Login with Google</button>
+            </div>
+        </header>
+        
+        <main>
+            <!-- Auth Section -->
+            <section id="auth-section" class="section active">
+                <div class="card">
+                    <h2>Welcome to SunoRank</h2>
+                    <p>Create and vote on rankings for your favorite playlists</p>
+                    <button id="start-auth-btn">Get Started</button>
+                </div>
+            </section>
+
+            <!-- Suno Verification Section -->
+            <section id="verification-section" class="section hidden">
+                <div class="card">
+                    <h2>Verify Your Suno Account</h2>
+                    <p>To use SunoRank, you need to verify your Suno account ownership.</p>
+                    
+                    <div id="verification-steps">
+                        <div class="step">
+                            <h3>Step 1: Get Verification Code</h3>
+                            <button id="generate-code-btn">Generate Code</button>
+                            <div id="verification-code-container" class="hidden">
+                                <p>Your verification code: <span id="verification-code" class="code"></span></p>
+                            </div>
+                        </div>
+                        
+                        <div id="step-instructions" class="step">
+                            <h3>Step 2: Create a Suno Song</h3>
+                            <p>Generate a verification code first to begin the verification process.</p>
+                        </div>
+                        
+                        <div id="verification-status-container" class="step">
+                            <div id="verification-status"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Dashboard Section -->
+            <section id="dashboard-section" class="section hidden">
+                <div class="card">
+                    <h2>Your Playlists</h2>
+                    <button id="create-playlist-btn" class="primary-btn">Create New Playlist</button>
+                    <div id="playlists-container">
+                        <!-- Playlists will be loaded here -->
+                        <p id="no-playlists-message">You don't have any playlists yet. Create one to get started!</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Create Playlist Section -->
+            <section id="create-playlist-section" class="section hidden">
+                <div class="card">
+                    <h2>Create New Playlist</h2>
+                    <div class="form-group">
+                        <label for="playlist-url">Suno Playlist URL:</label>
+                        <div class="input-row">
+                            <input type="text" id="playlist-url" placeholder="Enter Suno playlist URL or ID">
+                            <button id="fetch-playlist-btn">Fetch Songs</button>
+                        </div>
+                        <p class="help-text">Example: https://suno.com/playlist/d36131f0-47fa-4392-bb29-d65b5ffa46ec</p>
+                    </div>
+                    <div id="playlist-name-container" class="hidden">
+                        <div class="form-group">
+                            <div class="name-display-row">
+                                <label>Playlist Name: <span id="playlist-name-display"></span></label>
+                                <button id="edit-name-btn" class="icon-btn"><i class="fas fa-edit edit-icon"></i></button>
+                            </div>
+                            <div id="edit-name-container" class="hidden">
+                                <input type="text" id="playlist-name" placeholder="Enter custom playlist name">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="items-container" class="suno-songs-container">
+                        <!-- Songs will be added here -->
+                    </div>
+                    <div class="form-group">
+                        <label for="voting-deadline">Voting Deadline:</label>
+                        <input type="datetime-local" id="voting-deadline" />
+                        <p class="help-text">Leave blank for no deadline.</p>
+                    </div>
+                    <div class="form-group">
+                        <label>Ranking System:</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="ranking-type" value="ranked-choice" checked>
+                                Ranked Choice (Select top 3)
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="ranking-type" value="star-rating">
+                                Star Rating (1-5 stars per song)
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="ranking-type" value="bracket">
+                                Bracket Tournament (2, 4, 8, 16, or 32 songs)
+                            </label>
+                        </div>
+                        <p class="help-text">Choose how users will vote on songs.</p>
+                    </div>
+                    <div class="buttons-row">
+                        <button id="cancel-create-btn" class="secondary-btn">Cancel</button>
+                        <button id="save-playlist-btn" class="primary-btn">Save Playlist</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Playlist Detail Section -->
+            <section id="playlist-detail-section" class="section hidden">
+                <div class="card">
+                    <div id="playlist-header">
+                        <h2 id="playlist-detail-name"></h2>
+                        <p id="playlist-detail-info"></p>
+                    </div>
+                    
+                    <!-- Login prompt for public viewers -->
+                    <div id="playlist-login-prompt" class="login-prompt hidden">
+                        <p>Log in to vote on this playlist or create your own!</p>
+                        <button id="playlist-login-btn" class="primary-btn">Login with Google</button>
+                    </div>
+                    
+                    <!-- Owner-only controls -->
+                    <div id="playlist-owner-controls" class="owner-controls hidden">
+                        <button id="edit-playlist-btn" class="secondary-btn">Edit Playlist</button>
+                        <button id="delete-playlist-btn" class="danger-btn">Delete Playlist</button>
+                    </div>
+                    
+                    <!-- Vote controls for logged-in users -->
+                    <div id="playlist-vote-controls" class="vote-controls hidden">
+                        <button id="start-vote-btn" class="primary-btn">Vote Now</button>
+                    </div>
+                    
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="ranking">Current Ranking</button>
+                        <button class="tab-btn" data-tab="share">Share</button>
+                    </div>
+                    
+                    <div id="ranking-tab" class="tab-content active">
+                        <div id="current-ranking">
+                            <!-- Current ranking will be shown here -->
+                        </div>
+                    </div>
+                    
+                    <div id="share-tab" class="tab-content hidden">
+                        <h3>Share this Playlist</h3>
+                        <div class="form-group">
+                            <label for="share-link">Share Link:</label>
+                            <div class="input-row">
+                                <input type="text" id="share-link" readonly>
+                                <button id="copy-link-btn">Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="buttons-row">
+                        <button id="back-to-dashboard-btn" class="secondary-btn">Back to Dashboard</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Voting Section -->
+            <section id="voting-section" class="section hidden">
+                <div class="card">
+                    <div class="section-header">
+                        <h2 id="voting-title">Vote on Playlist</h2>
+                        <button id="back-to-playlist-btn" class="secondary-btn">Back to Playlist</button>
+                    </div>
+                    
+                    <!-- Login prompt for public viewers -->
+                    <div id="voting-login-prompt" class="login-prompt hidden">
+                        <p>You need to be logged in to vote on this playlist.</p>
+                        <button id="voting-login-btn" class="primary-btn">Login with Google</button>
+                    </div>
+                    
+                    <!-- Simple "Choose Three" UI -->
+                    <div id="voting-songs-container" class="songs-container">
+                        <!-- Songs will be dynamically rendered here -->
+                    </div>
+                    
+                    <!-- Legacy elements - hidden but kept for compatibility -->
+                    <div id="matchup-container" class="hidden">
+                        <h3>Which do you prefer?</h3>
+                        <div class="voting-progress-container">
+                            <div class="progress-bar-container">
+                                <div id="voting-progress" class="progress-bar"></div>
+                            </div>
+                            <span id="voting-progress-text">0 of 0 comparisons</span>
+                        </div>
+                        <div class="matchup">
+                            <div class="choice-container">
+                                <div id="choice-a" class="choice-slot"></div>
+                                <button id="choice-a-btn" class="choice-btn primary-btn">Choose This</button>
+                            </div>
+                            <div class="choice-divider">VS</div>
+                            <div class="choice-container">
+                                <div id="choice-b" class="choice-slot"></div>
+                                <button id="choice-b-btn" class="choice-btn primary-btn">Choose This</button>
+                            </div>
+                        </div>
+                        <button id="skip-btn" class="secondary-btn">Skip This Pair</button>
+                    </div>
+                    
+                    <!-- Results container (kept for compatibility) -->
+                    <div id="results-container" class="hidden">
+                        <h3>Your Top Choices</h3>
+                        <div class="results">
+                            <div class="result-item">
+                                <div class="result-rank">1st</div>
+                                <div id="first-choice" class="choice-slot"></div>
+                            </div>
+                            <div class="result-item">
+                                <div class="result-rank">2nd</div>
+                                <div id="second-choice" class="choice-slot"></div>
+                            </div>
+                            <div class="result-item">
+                                <div class="result-rank">3rd</div>
+                                <div id="third-choice" class="choice-slot"></div>
+                            </div>
+                        </div>
+                        <button id="submit-vote-btn" class="primary-btn">Submit Vote</button>
+                    </div>
+                    <div id="voting-countdown" class="countdown"></div>
+                    
+                    <!-- Improved bracket tournament container -->
+                    <div id="bracket-container" class="bracket-container hidden">
+                        <div class="bracket-header">
+                            <h3 id="bracket-round-title">Round 1</h3>
+                            <div id="bracket-progress" class="bracket-progress">
+                                <span>Match 1 of 4</span>
+                            </div>
+                        </div>
+                        
+                        <div id="bracket-matchup" class="bracket-matchup">
+                            <!-- Current matchup will be displayed here -->
+                        </div>
+                        
+                        <div class="bracket-navigation">
+                            <button id="bracket-choice-left-btn" class="primary-btn">Choose Left</button>
+                            <button id="bracket-choice-right-btn" class="primary-btn">Choose Right</button>
+                        </div>
+                        
+                        <div class="bracket-submit-votes">
+                            <button id="bracket-submit-votes-btn" class="primary-btn">Submit All Votes</button>
+                        </div>
+                        
+                        <!-- Bracket visualization -->
+                        <div class="bracket-controls">
+                            <h4>Tournament Progress</h4>
+                            <div id="bracket-visualization" class="bracket-visualization">
+                                <!-- Visual representation of the tournament bracket -->
+                            </div>
+                        </div>
+                        
+                        <!-- Admin controls (only visible to playlist owner) -->
+                        <div id="bracket-admin-controls" class="bracket-admin-controls hidden">
+                            <h4>Admin Controls</h4>
+                            <div class="form-group">
+                                <label for="bracket-round-select">Current Round:</label>
+                                <select id="bracket-round-select" class="form-control">
+                                    <!-- Round options will be populated dynamically -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="bracket-voting-deadline">Round Deadline:</label>
+                                <input type="datetime-local" id="bracket-round-deadline" class="form-control">
+                            </div>
+                            <button id="bracket-update-round-btn" class="primary-btn">Update Round</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Star rating container -->
+                    <div id="star-rating-container" class="star-rating-container hidden">
+                        <div id="song-card" class="song-card">
+                            <!-- Song card content will be loaded dynamically -->
+                        </div>
+                        
+                        <div class="star-navigation">
+                            <button id="prev-song-btn" class="secondary-btn">Previous Song</button>
+                            <button id="next-song-btn" class="primary-btn">Next Song</button>
+                        </div>
+                        
+                        <button id="submit-star-rating-btn" class="primary-btn" disabled>Submit Ratings</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Vote Success Section -->
+            <section id="vote-success-section" class="section hidden">
+                <div class="card">
+                    <h2>Thank You for Voting!</h2>
+                    <div id="vote-results-container">
+                        <h3>Current Ranking:</h3>
+                        <div id="vote-results">
+                            <!-- Current rankings after vote will be shown here -->
+                        </div>
+                    </div>
+                    <button id="back-to-playlist-btn" class="primary-btn">Back to Playlist</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 SunoRank</p>
+        </footer>
+    </div>
+
+    <!-- Modals -->
+    <div id="message-modal" class="modal hidden">
+        <div class="modal-content">
+            <p id="modal-message"></p>
+            <button id="modal-ok-btn" class="primary-btn">OK</button>
+        </div>
+    </div>
+    
+    <div id="custom-modal" class="modal hidden">
+        <div id="custom-modal-content" class="modal-content">
+            <!-- Content will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <div id="loading-modal" class="modal hidden">
+        <div class="modal-content loading-content">
+            <div class="spinner"></div>
+            <p id="loading-message">Loading...</p>
+        </div>
+    </div>
+
+    <!-- App Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/verification.js"></script>
+    <script src="js/playlist.js"></script>
+    <script src="js/voting.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

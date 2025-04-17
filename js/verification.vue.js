@@ -4,7 +4,7 @@ import { useAuth } from './auth.vue.js';
 
 export const useVerification = () => {
     // Use auth composable instead of firebase directly
-    const { currentUser, isLoggedIn, userVerified, sunoProfile, hasSunoProfile } = useAuth();
+    const { currentUser, isLoggedIn, userVerified, sunoProfile, hasSunoProfile, refreshUserState } = useAuth();
     // State
     const verificationCode = ref('');
     const codeExpiry = ref(null);
@@ -114,12 +114,22 @@ export const useVerification = () => {
         try {
           const verifySong = firebase.functions().httpsCallable('verifyCode');
           const result = await verifySong({ code: verificationCode.value, songId: uuid });
-          if (result.success) {
+          if (result.data.success) {
             verificationStatus.value = 'Verified!';
-            verificationUserHandle.value = result.user_handle || '';
+            verificationUserHandle.value = result.data.sunoProfile.handle || '';
+            
+            // Update verification status in memory immediately
+            await refreshUserState();
+            console.log('User verification status updated to:', userVerified.value);
+            
+            // Navigate to dashboard after a short delay to let user see verification success
+            setTimeout(() => {
+              console.log('Verification successful, redirecting to dashboard');
+              window.location.hash = 'dashboard';
+            }, 3000); // 3 second delay
           } else {
             verificationStatus.value = 'Failed';
-            verificationError.value = result.message || 'Verification failed.';
+            verificationError.value = result.data.message || 'Verification failed.';
           }
         } catch (err) {
           verificationStatus.value = 'Failed';

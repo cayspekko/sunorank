@@ -1,7 +1,21 @@
 // Firebase service for Vue 3
 import { ref, reactive, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
 
+// Create a singleton instance of the Firebase service
+let instance = null;
+let instanceCounter = 0;
+
 export const useFirebase = () => {
+  instanceCounter++;
+  console.log(`useFirebase called ${instanceCounter} times`);
+  
+  // Return existing instance if already created
+  if (instance) {
+    console.log('Returning existing Firebase service instance');
+    return instance;
+  }
+  
+  // Create new instance only the first time
   // Firebase already initialized in config.js
 
   // Auth state
@@ -79,7 +93,6 @@ export const useFirebase = () => {
       
       if (sunoProfileData) {
         updateData.sunoProfile = sunoProfileData;
-        updateData.isSunoVerified = true;
       }
       
       await db.collection('users').doc(userId).update(updateData);
@@ -113,7 +126,7 @@ export const useFirebase = () => {
         } else {
           // Check if user is verified and has Suno profile
           console.log('User profile found, verified status:', userProfile.verified);
-          userVerified.value = userProfile.verified || userProfile.isSunoVerified || false;
+          userVerified.value = userProfile.verified || false;
           
           // Store Suno profile data if available
           if (userProfile.sunoProfile) {
@@ -150,7 +163,7 @@ export const useFirebase = () => {
       
       if (userProfile) {
         console.log('Refreshed user profile:', userProfile);
-        userVerified.value = userProfile.verified || userProfile.isSunoVerified || false;
+        userVerified.value = userProfile.verified || false;
         
         // Update Suno profile if available
         if (userProfile.sunoProfile) {
@@ -167,7 +180,8 @@ export const useFirebase = () => {
     initAuth();
   });
 
-  return {
+  // Create the instance object with all exports
+  const exports = {
     // State
     currentUser,
     userVerified,
@@ -186,4 +200,9 @@ export const useFirebase = () => {
     updateUserVerification,
     refreshUserState
   };
+  
+  // Store this instance for future use
+  instance = exports;
+  
+  return exports;
 };

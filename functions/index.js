@@ -204,7 +204,6 @@ exports.verifyCode = regionalFunctions.https.onCall(async (data, context) => {
     // Update user document with Suno profile data
     await admin.firestore().collection('users').doc(userId).update({
       sunoProfile: sunoProfileData,
-      isSunoVerified: true,
       verified: true,
       verifiedAt: admin.firestore.FieldValue.serverTimestamp()
     });

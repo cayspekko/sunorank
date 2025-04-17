@@ -44,19 +44,6 @@ export const useAuth = () => {
     }
   };
   
-  // Navigation helper - returns the section that should be shown based on auth state
-  const getAppropriateSection = () => {
-    if (!isLoggedIn()) {
-      return 'auth-section';
-    }
-    
-    if (!isVerified()) {
-      return 'verification-section';
-    }
-    
-    return 'dashboard-section';
-  };
-  
   // Return everything needed for the auth functionality
   return {
     // State
@@ -78,7 +65,6 @@ export const useAuth = () => {
     logout,
     isLoggedIn,
     isVerified,
-    refreshUserState,
-    getAppropriateSection
+    refreshUserState
   };
 };

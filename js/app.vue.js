@@ -15,7 +15,7 @@ const App = {
     const {
       currentUser, userVerified, userDisplayName, userPhotoUrl,
       sunoAvatarUrl, hasSunoProfile, login, logout,
-      isLoggedIn, isVerified, getAppropriateSection
+      isLoggedIn, isVerified
     } = useAuth();
 
     // Playlist state
@@ -314,15 +314,3 @@ vueApp.config.globalProperties.verificationService = window.verificationService;
 vueApp.component('vue-app', App);
 vueApp.mount('#app');
 window.vueApp = vueApp;
-
-// Debug helper
-window.debugVue = () => {
-  const app = window.vueApp?._instance?.setupState;
-  if (!app) return console.log('Vue app not mounted');
-  console.log('App State:', {
-    section: app.currentSection.value,
-    isLoggedIn: app.isLoggedIn(),
-    currentPlaylist: app.currentPlaylist?.value,
-    playlists: app.playlists.value
-  });
-};
