@@ -23,7 +23,7 @@ const App = {
       playlists, currentPlaylist, playlistRanking, tournamentStatus,
       loadUserPlaylists, viewPlaylist, sharePlaylist,
       confirmDeletePlaylist, savePlaylist, editPlaylist,
-      resetCreateForm, canEditPlaylist
+      resetCreateForm, canEditPlaylist, formData, fetchSunoPlaylist,
     } = usePlaylist();
 
     const errorMessage = ref('');
@@ -281,8 +281,9 @@ const App = {
 
       // Playlist
       currentPlaylist, playlists, 
-      goTo, resetCreateForm, 
+      goTo, resetCreateForm, fetchSunoPlaylist,
       loadUserPlaylists, sharePlaylist,
+      formData, savePlaylist,
       
       // Verification
       verificationCode, 

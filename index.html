@@ -643,7 +643,7 @@
             </section>
             
             <!-- Create Playlist Section (Only show when logged in) -->
-            <section v-if="currentSection === 'create-playlist-section' && isLoggedIn()" id="create-playlist-section" class="section">
+            <section v-if="currentSection === 'create-playlist-section'" id="create-playlist-section" class="section">
               <div class="section-header">
                 <button class="back-button" @click="goTo('dashboard-section')">
                   <sl-icon name="arrow-left"></sl-icon> Back to Dashboard
