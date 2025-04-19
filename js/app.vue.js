@@ -3,32 +3,87 @@ import { useAuth } from './auth.vue.js';
 import { usePlaylist } from './playlist.vue.js';
 import { useVerification } from './verification.vue.js';
 
+// Login Modal Component
+const LoginModal = {
+  name: 'LoginModal',
+  template: document.getElementById('login-modal-template').innerHTML,
+  props: ['show'],
+  emits: ['close', 'login-success'],
+  setup(props, { emit }) {
+    const { login, isLoading } = useAuth();
+    
+    const handleLogin = async () => {
+      const result = await login();
+      if (result) {
+        emit('login-success');
+        emit('close');
+      }
+    };
+    
+    return { login: handleLogin, isLoading };
+  }
+};
+
+// Verification Modal Component
+const VerificationModal = {
+  name: 'VerificationModal',
+  template: document.getElementById('verification-modal-template').innerHTML,
+  props: ['show'],
+  emits: ['close', 'verified'],
+  setup(props, { emit }) {
+    const { 
+      verificationCode, generateVerificationCode, isVerifying, verifySunoSong,
+      verificationStatus, verificationError, verificationUserHandle, verificationSongUrl
+    } = useVerification();
+    
+    const handleVerifySunoSong = async () => {
+      await verifySunoSong();
+      if (verificationStatus.value === 'Verified!') {
+        setTimeout(() => {
+          emit('verified');
+          emit('close');
+        }, 1000);
+      }
+    };
+    
+    return {
+      verificationCode,
+      generateVerificationCode,
+      isVerifying,
+      verifySunoSong: handleVerifySunoSong,
+      verificationStatus,
+      verificationError, 
+      verificationUserHandle,
+      verificationSongUrl
+    };
+  }
+};
+
 const App = {
   name: 'VueApp',
+  components: {
+    LoginModal,
+    VerificationModal
+  },
   template: document.getElementById('main-template').innerHTML,
   setup() {
-    // Verification state (Vue composable)
-    const {verificationCode, generateVerificationCode, isVerifying, verifySunoSong,
+    // Get state from composables
+    const { verificationCode, generateVerificationCode, isVerifying, verifySunoSong,
       verificationStatus, verificationError, verificationUserHandle, verificationSongUrl
      } = useVerification();
-    // Auth state
-    const {
-      currentUser, userVerified, userDisplayName, userPhotoUrl,
-      sunoAvatarUrl, hasSunoProfile, login, logout,
-      isLoggedIn, isVerified
+
+    const { currentUser, userVerified, userDisplayName, userPhotoUrl,
+      sunoAvatarUrl, hasSunoProfile, login, logout, isLoggedIn, isVerified
     } = useAuth();
 
-    // Playlist state
-    const {
-      playlists, currentPlaylist, playlistRanking, tournamentStatus,
-      loadUserPlaylists, viewPlaylist, sharePlaylist,
-      confirmDeletePlaylist, savePlaylist, editPlaylist,
-      resetCreateForm, canEditPlaylist, formData, fetchSunoPlaylist,
+    const { playlists, currentPlaylist, playlistRanking, tournamentStatus,
+      loadUserPlaylists, viewPlaylist, sharePlaylist, confirmDeletePlaylist, 
+      savePlaylist, editPlaylist, resetCreateForm, canEditPlaylist, 
+      formData, fetchSunoPlaylist
     } = usePlaylist();
 
+    // UI state
     const errorMessage = ref('');
-    
-    // Loading state for UI
     const isLoading = ref(false);
     const loading = computed(() => isLoading.value || isVerifying.value);
     const loadingMessage = computed(() => {
@@ -40,70 +95,69 @@ const App = {
       return "Loading...";
     });
 
-    // Simplified hash to section mapping
+    // Hash/section mappings for navigation
     const hashToSection = {
-      'login': 'auth-section',
       'dashboard': 'dashboard-section',
       'create': 'create-playlist-section',
       'playlist': 'playlist-detail-section',
       'verify': 'verification-section'
     };
     
-    // Section to hash mapping (for generating URLs)
     const sectionToHash = {
-      'auth-section': 'login',
       'dashboard-section': 'dashboard',
       'create-playlist-section': 'create',
       'verification-section': 'verify'
-      // playlist-detail-section handled specially
     };
     
-    // Auth state tracking to prevent race conditions
+    // Auth tracking
     const authStateLoaded = ref(false);
+    const showLoginModal = ref(true);
+    const showVerificationModal = ref(true);
+    const pendingAuthAction = ref(null);
+
+    // Computed property for the Suno profile URL
+    const sunoProfileUrl = computed(() => {
+      return hasSunoProfile.value && sunoAvatarUrl.value 
+        ? `https://suno.com/@${sunoAvatarUrl.value.split('/').pop()}` 
+        : '#';
+    });
     
-    // Navigation guard - ensures user is redirected based on auth state
-    // Simple navigation guard - redirects via hash changes based on auth state
-    function guardNavigation() {
-      // Skip if auth state not loaded yet
-      if (!authStateLoaded.value) {
-        return false;
+    // Helper functions for auth modals
+    function handleLoginSuccess() {
+      showLoginModal.value = false;
+      if (!isVerified()) {
+        showVerificationModal.value = true;
+      } else {
+        handlePendingAction();
       }
-      
-      // Get current hash or default to dashboard
-      const currentHash = window.location.hash.replace(/^#/, '') || 'dashboard';
-      const baseRoute = currentHash.split('?')[0];
-      const params = currentHash.includes('?') ? currentHash.split('?')[1] : null;
-      
-      const isUserLoggedIn = isLoggedIn();
-      const isUserVerified = userVerified.value;
-      
-      console.log('Guard navigation:', { isUserLoggedIn, isUserVerified, currentHash });
-      
-      // Determine where user should go based on auth state
-      let targetHash = baseRoute;
-      
-      // Apply redirect rules
-      if (!isUserLoggedIn) {
-        targetHash = 'login';
-      } else if (!isUserVerified && baseRoute !== 'verify') {
-        targetHash = 'verify';
-      } else if (isUserVerified && (baseRoute === 'login' || baseRoute === 'verify')) {
-        targetHash = 'dashboard';
+    }
+    
+    function handleVerificationSuccess() {
+      showVerificationModal.value = false;
+      handlePendingAction();
+    }
+    
+    function handlePendingAction() {
+      if (pendingAuthAction.value) {
+        const { section, params } = pendingAuthAction.value;
+        if (params) {
+          goTo(section, params);
+        } else {
+          goTo(section);
+        }
+        pendingAuthAction.value = null;
       }
-      
-      // Add back any params if needed
-      if (params && targetHash === baseRoute) {
-        targetHash += '?' + params;
-      }
-      
-      // Only redirect if the hash would change
-      if (baseRoute !== targetHash) {
-        console.log(`Redirecting: ${baseRoute} → ${targetHash}`);
-        window.location.hash = targetHash;
-        return true; // Navigation changed
-      }
-      
-      return false; // No change needed
+    }
+    
+    // Check if user can access a section
+    function needsAuth(section) {
+      const protectedSections = ['dashboard-section', 'create-playlist-section', 'playlist-detail-section'];
+      return protectedSections.includes(section) && !isLoggedIn();
+    }
+    
+    function needsVerification(section) {
+      const verificationSections = ['dashboard-section', 'create-playlist-section', 'playlist-detail-section'];
+      return verificationSections.includes(section) && isLoggedIn() && !isVerified();
     }
     
     // Reactive wrapper for the hash
@@ -113,49 +167,109 @@ const App = {
     const currentSection = computed(() => {
       const baseRoute = currentHash.value.split('?')[0];
       const section = hashToSection[baseRoute] || 'dashboard-section';
-      console.log(`Computing currentSection: hash=${currentHash.value}, section=${section}`);
       return section;
     });
     
-    // Simplified navigation helper
+    // Simple navigation helper
     function goTo(section, playlistId = null) {
+      console.log(`Navigating to ${section}` + (playlistId ? ` with ID: ${playlistId}` : ''));
+      
+      // Check for auth requirements
+      if (needsAuth(section)) {
+        pendingAuthAction.value = playlistId ? { section, params: playlistId } : { section };
+        showLoginModal.value = true;
+        return;
+      }
+      
+      if (needsVerification(section)) {
+        pendingAuthAction.value = playlistId ? { section, params: playlistId } : { section };
+        showVerificationModal.value = true;
+        return;
+      }
+      
+      // Update URL
       if (section === 'playlist-detail-section' && playlistId) {
         window.location.hash = `playlist?id=${playlistId}`;
       } else {
         const hash = sectionToHash[section] || 'dashboard';
         window.location.hash = hash;
       }
-
-      // if (currentSection.value === 'create-playlist-section' && section !== 'create-playlist-section') {
-      //   resetCreateForm();
-      // }
-
-
-
-      // if (section === 'dashboard-section' && isLoggedIn() && isVerified()) {
-      //   loadUserPlaylists();
-      // } else if (section === 'playlist-detail-section' && isLoggedIn() && isVerified() && playlistId) {
-      //   viewPlaylist(playlistId);
-      // }
-    }
-
-    function handleRoute() {
-      const hash = window.location.hash.substring(1);
-      const [baseRoute, queryString] = hash.split('?');
-      const params = new URLSearchParams(queryString);
-
-      if (baseRoute === 'playlist' && params.get('id')) {
-        return isLoggedIn() && isVerified()
-          ? goTo('playlist-detail-section', params.get('id'))
-          : goTo('auth-section');
+      
+      // Perform section-specific actions
+      if (section === 'dashboard-section' && isLoggedIn()) {
+        loadUserPlaylists();
+      } else if (section === 'playlist-detail-section' && playlistId) {
+        viewPlaylist(playlistId);
+      } else if (section === 'create-playlist-section') {
+        resetCreateForm();
       }
-
-      goTo(hashToSection[baseRoute] || 'auth-section');
     }
 
-    // Run navigation guard when auth state changes
+    // Process route changes from hash updates
+    function handleRoute() {
+      // Always hide modals if the user is already authenticated
+      if (isLoggedIn()) {
+        showLoginModal.value = false;
+      }
+      
+      if (isLoggedIn() && isVerified()) {
+        showVerificationModal.value = false;
+      }
+      
+      // Parse the hash
+      const hash = window.location.hash.substring(1) || 'dashboard';
+      const [baseRoute, queryString] = hash.split('?');
+      const params = new URLSearchParams(queryString || '');
+
+      // Update the reactive hash
+      currentHash.value = hash;
+      
+      // Handle playlist route
+      if (baseRoute === 'playlist' && params.get('id')) {
+        const playlistId = params.get('id');
+        
+        if (needsAuth('playlist-detail-section')) {
+          pendingAuthAction.value = { section: 'playlist-detail-section', params: playlistId };
+          showLoginModal.value = true;
+          return;
+        }
+        
+        if (needsVerification('playlist-detail-section')) {
+          pendingAuthAction.value = { section: 'playlist-detail-section', params: playlistId };
+          showVerificationModal.value = true;
+          return;
+        }
+        
+        // User has access, load the playlist
+        viewPlaylist(playlistId);
+        return;
+      }
+      
+      // Handle other routes
+      const targetSection = hashToSection[baseRoute] || 'dashboard-section';
+      
+      // Check auth requirements
+      if (needsAuth(targetSection)) {
+        pendingAuthAction.value = { section: targetSection };
+        showLoginModal.value = true;
+        return;
+      }
+      
+      if (needsVerification(targetSection)) {
+        pendingAuthAction.value = { section: targetSection };
+        showVerificationModal.value = true;
+        return;
+      }
+      
+      // Load dashboard data if needed
+      if (targetSection === 'dashboard-section' && isLoggedIn()) {
+        loadUserPlaylists();
+      }
+    }
+
+    // Monitor auth state changes
     watch([currentUser, userVerified], () => {
-      console.log('Auth state changed - applying navigation guard');
+      console.log('Auth state changed:', { loggedIn: isLoggedIn(), verified: isVerified() });
       
       // Mark auth state as loaded when we've received values
       if (!authStateLoaded.value && currentUser.value !== null) {
@@ -163,9 +277,18 @@ const App = {
         authStateLoaded.value = true;
       }
       
-      // Run guard if auth is fully loaded
-      if (authStateLoaded.value) {
-        guardNavigation();
+      // Clear any modals if user is logged in
+      if (isLoggedIn()) {
+        console.log('User is logged in, ensuring login modal is closed');
+        showLoginModal.value = false;
+      }
+      
+      // Clear verification modal if user is verified
+      if (isLoggedIn() && isVerified()) {
+        console.log('User is verified, ensuring verification modal is closed');
+        showVerificationModal.value = false;
+        // Execute any pending actions that were waiting for full authentication
+        handlePendingAction();
       }
     }, { immediate: true });
     
@@ -186,20 +309,6 @@ const App = {
       }
     });
 
-    // Simple hash change listener
-    const setupHashChangeListener = () => {
-      window.addEventListener('hashchange', () => {
-        const newHash = window.location.hash.replace(/^#/, '') || 'dashboard';
-        console.log(`Hash changed to: ${newHash}`);
-        // Update the reactive hash wrapper
-        currentHash.value = newHash;
-        
-        // Apply guard then handle route if needed
-        if (!guardNavigation()) {
-          handleRoute(); 
-        }
-      });
-    };
 
     // Handle initial auth state
     watch([currentUser, userVerified], () => {
@@ -235,41 +344,30 @@ const App = {
     }
 
     onMounted(() => {
-      console.log('App mounted');
-      
       // Set default hash if none exists
       if (!window.location.hash) {
         window.location.hash = 'dashboard';
       }
       
-      // Initialize the reactive hash wrapper with current hash
+      // Initialize the reactive hash wrapper
       currentHash.value = window.location.hash.replace(/^#/, '') || 'dashboard';
-      console.log('Initial hash set to:', currentHash.value);
       
       // Set up hash change listener
-      setupHashChangeListener();
+      window.addEventListener('hashchange', () => {
+        currentHash.value = window.location.hash.replace(/^#/, '') || 'dashboard';
+        handleRoute();
+      });
       
-      // Apply guard once auth is loaded
+      // Process the initial route once auth state is loaded
       watch(authStateLoaded, (isLoaded) => {
         if (isLoaded) {
-          console.log('Auth loaded, applying navigation guard');
-          
-          // Apply navigation guard and update hash if needed
-          const redirected = guardNavigation();
-          
-          // If no redirect, ensure we handle the initial route
-          if (!redirected) {
-            handleRoute();
-          }
+          handleRoute();
         }
       }, { immediate: true });
-      
-      // Also handle the initial hash if auth is already loaded
-      if (authStateLoaded.value) {
-        forceUpdateFromHash();
-      }
     });
 
+    // We don't need this - already using the computed sunoProfileUrl above
+    
     return {
       // Auth
       currentUser, userVerified, userDisplayName, userPhotoUrl,
@@ -299,7 +397,16 @@ const App = {
       loading,
       loadingMessage,
       
-      // Missing properties that caused warnings
+      // Modal state
+      showLoginModal,
+      showVerificationModal,
+      handleLoginSuccess,
+      handleVerificationSuccess,
+      
+      // Suno Profile URL
+      sunoProfileUrl,
+      
+      // Common UI states
       isLoading: ref(false),
       playlistsLoading: ref(false),
       noPlaylistsFound: ref(false),

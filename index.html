@@ -244,8 +244,75 @@
     </style>
 </head>
   <body>
+    <!-- Modal Templates -->
+    <template id="login-modal-template">
+      <sl-dialog class="login-modal" label="Sign In" :open="show" @sl-hide="$emit('close')">
+        <div class="login-container">
+          <p>Please sign in with your Google account to continue.</p>
+          <sl-button @click="login" variant="primary" size="large" :loading="isLoading">
+            <sl-icon slot="prefix" name="google"></sl-icon> Sign in with Google
+          </sl-button>
+        </div>
+      </sl-dialog>
+    </template>
+    
+    <template id="verification-modal-template">
+      <sl-dialog class="verification-modal" label="Verify Your Suno Account" :open="show" @sl-hide="$emit('close')">
+        <div class="verification-container">
+          <div v-if="!verificationCode">
+            <p>Please verify your Suno account to continue.</p>
+            <p>We'll generate a code that you need to add to a Suno song's tags.</p>
+            <sl-button @click="generateVerificationCode" variant="primary" :loading="isVerifying">
+              Generate Verification Code
+            </sl-button>
+          </div>
+          
+          <div v-else class="verification-steps">
+            <h3>Your Verification Code</h3>
+            <div class="verification-code">{{ verificationCode }}</div>
+            
+            <div class="verification-instructions">
+              <ol>
+                <li>Create a new Suno song or edit an existing one</li>
+                <li>Add the verification code to the song's tags</li>
+                <li>Save the song</li>
+                <li>Enter the song URL or ID below</li>
+              </ol>
+            </div>
+            
+            <div class="verification-form">
+              <sl-input label="Suno Song URL or ID" v-model="verificationSongUrl" placeholder="https://suno.com/song/xxxx or just the song ID"></sl-input>
+              <sl-button @click="verifySunoSong" variant="success" :loading="isVerifying" :disabled="!verificationSongUrl">
+                Verify Song
+              </sl-button>
+            </div>
+            
+            <div v-if="verificationStatus" class="verification-status" :class="{ 'success': verificationStatus === 'Verified!', 'error': verificationStatus === 'Failed' }">
+              <p>{{ verificationStatus }}</p>
+              <p v-if="verificationError" class="error-message">{{ verificationError }}</p>
+              <p v-if="verificationUserHandle" class="success-message">Verified Suno handle: @{{ verificationUserHandle }}</p>
+            </div>
+          </div>
+        </div>
+      </sl-dialog>
+    </template>
+    
     <template id="main-template">
         <div class="app-container">
+          <!-- Login Modal Component (only shown when needed and NOT logged in) -->
+          <login-modal 
+            :show="showLoginModal && !isLoggedIn()" 
+            @close="showLoginModal = false"
+            @login-success="handleLoginSuccess"
+          ></login-modal>
+          
+          <!-- Verification Modal Component (only shown when logged in but NOT verified) -->
+          <verification-modal
+            :show="showVerificationModal && isLoggedIn() && !isVerified()"
+            @close="showVerificationModal = false"
+            @verified="handleVerificationSuccess"
+          ></verification-modal>
+          
           <header class="app-header">
             <h1>SunoRank (Vue Version)</h1>
             
@@ -259,6 +326,12 @@
                 <a v-if="hasSunoProfile" :href="sunoProfileUrl" target="_blank" class="suno-profile-link">
                   <sl-avatar :image="sunoAvatarUrl" label="Suno Profile"></sl-avatar>
                 </a>
+                
+                <!-- Verification Button (if logged in but not verified) -->
+                <sl-button v-if="!isVerified() && !hasSunoProfile" @click="showVerificationModal = true" variant="primary" size="small" class="verify-suno-btn">
+                  <sl-icon slot="prefix" name="check-circle"></sl-icon>
+                  Verify Suno
+                </sl-button>
               </div>
               <sl-button @click="logout" variant="primary" outline size="small">
                 <sl-icon slot="prefix" name="box-arrow-right"></sl-icon>
@@ -288,82 +361,6 @@
               <div>Error: {{ errorMessage }}</div>
               <div>Verification Code: {{ verificationCode }}</div>
               <div>Verification Status: {{ userVerified }}</div>
-            </section>
-            
-            <section id="auth-section" class="section" v-if="currentSection === 'auth-section'">
-              <div class="auth-container">
-                <sl-card>
-                  <h2 slot="header">Welcome to SunoRank</h2>
-                  <div class="auth-content">
-                    <h3>Create and share ranked playlists of your Suno songs</h3>
-                    <p>SunoRank is a platform for Suno users to create and share ranked playlists of their favorite AI-generated songs.</p>
-                    
-                    <div class="login-container">
-                      <p>Please sign in with your Google account to get started:</p>
-                      <div class="google-signin-button">
-                        <sl-button @click="login" variant="primary" size="large">
-                          <sl-icon slot="prefix" name="google"></sl-icon>
-                          Sign in with Google
-                        </sl-button>
-                      </div>
-                    </div>
-                    
-                    <sl-alert v-if="authMessage" variant="danger" open>
-                      {{ authMessage }}
-                    </sl-alert>
-                  </div>
-                </sl-card>
-              </div>
-            </section>
-      
-            <!-- Verification Section -->
-            <section id="verification-section" class="section" v-if="currentSection === 'verification-section'">
-              <div class="verification-container">
-                <sl-card>
-                  <h2 slot="header">Verify Your Suno Account</h2>
-                  <div>
-                    <p>Please add the following verification code to your Suno song tags to verify your account:</p>
-                    <sl-alert variant="primary" open>
-                      <sl-icon slot="icon" name="info-circle"></sl-icon>
-                      <strong>Verification steps:</strong>
-                      <ol class="verification-steps">
-                        <li>Create a new song on Suno or use an existing one</li>
-                        <li>Add the verification code to the song's tags field</li>
-                        <li>Submit the song URL or ID below to verify</li>
-                      </ol>
-                    </sl-alert>
-                    
-                    <!-- Vue-driven verification UI -->
-                    <div class="verification-actions" style="margin-top: 1.5rem;">
-                      <sl-button @click="generateVerificationCode" :disabled="isVerifying" variant="primary">
-                        <sl-icon slot="prefix" name="key"></sl-icon>
-                        Generate Verification Code
-                      </sl-button>
-                      <span v-if="verificationCode" class="verification-code-display" style="margin-left: 1em;">
-                        <strong>Your code:</strong> <code>{{ verificationCode }}</code>
-                      </span>
-                    </div>
-                    <div class="suno-url-input" style="margin-top: 1.5rem; display: flex; gap: 1em; align-items: flex-end;">
-                      <sl-input v-model="verificationSongUrl" placeholder="Enter Suno song URL or ID" label="Suno Song URL or ID" style="flex: 1;">
-                        <sl-icon slot="prefix" name="music-note"></sl-icon>
-                      </sl-input>
-                      <sl-button @click="verifySunoSong" :disabled="isVerifying || !verificationCode" variant="success" style="margin-bottom: 1px;">
-                        <sl-icon slot="prefix" name="check-circle"></sl-icon>
-                        Verify
-                      </sl-button>
-                    </div>
-                    <div v-if="verificationStatus" style="margin-top: 1em;">
-                      <strong>Status:</strong> {{ verificationStatus }}
-                    </div>
-                    <div v-if="verificationUserHandle" style="margin-top: 0.5em;">
-                      <strong>User Handle:</strong> {{ verificationUserHandle }}
-                    </div>
-                    <div v-if="verificationError" style="color: red; margin-top: 0.5em;">
-                      {{ verificationError }}
-                    </div>
-                  </div>
-                </sl-card>
-              </div>
             </section>
             
             <!-- Dashboard Section (Always rendered but only visible when active) -->
@@ -774,18 +771,8 @@
     <div id="app">
       <vue-app></vue-app>
     </div>
-  
-    <!-- Vue 3 via CDN -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  
-    <!-- Your existing Firebase SDKs still apply -->
     <script src="js/config.js"></script>
-    <!-- <script src="js/auth.js"></script> -->
-    <!-- <script src="js/verification.js"></script> -->
-    <!-- <script src="js/playlist.js"></script> -->
-    <!-- <script src="js/voting.js"></script> -->
-  
-    <!-- New Vue App Logic -->
     <script type="module" src="js/app.vue.js"></script>
   </body>
 </html>
