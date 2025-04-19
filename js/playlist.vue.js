@@ -809,6 +809,7 @@ export const usePlaylist = () => {
   
   // View a playlist and load its ranking data for the tabbed interface
   const viewPlaylist = async (playlistId) => {
+    console.log('CALLED: viewPlaylist with ID:', playlistId);
     if (!playlistId) {
       console.error('Invalid playlist ID');
       return;
@@ -898,6 +899,7 @@ export const usePlaylist = () => {
   
   // Delete a playlist 
   const confirmDeletePlaylist = (playlist) => {
+    console.log('CALLED: confirmDeletePlaylist with playlist:', playlist);
     // Validate playlist object
     if (!playlist) {
       console.error('Cannot delete playlist: Invalid playlist object', playlist);
@@ -1287,11 +1289,18 @@ export const usePlaylist = () => {
       formData.votingDeadline = data.metadata?.votingDeadline || '';
       
       // Navigate to create section (in edit mode)
-      if (window.app && typeof window.app.goTo === 'function') {
-        window.app.goTo('create-playlist-section');
-      } else {
-        window.location.hash = 'create-playlist-section';
+      // Use window.vueApp which is set in app.vue.js
+      if (window.vueApp) {
+        // For Vue 3, need to access the mounted component instance
+        const appInstance = window.vueApp._instance.proxy;
+        if (typeof appInstance.goTo === 'function') {
+          appInstance.goTo('create-playlist-section');
+          return;
+        }
       }
+      
+      // Fallback to simple hash navigation
+      window.location.hash = 'create';
     } catch (error) {
       console.error('Error starting playlist edit:', error);
       errorMessage.value = error.message || 'Error loading playlist for editing. Please try again.';

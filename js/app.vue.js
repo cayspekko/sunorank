@@ -201,7 +201,12 @@ const App = {
       } else if (section === 'playlist-detail-section' && playlistId) {
         viewPlaylist(playlistId);
       } else if (section === 'create-playlist-section') {
-        resetCreateForm();
+        // Only reset form if we're not in edit mode
+        if (!formData.isEditMode) {
+          resetCreateForm();
+        } else {
+          console.log('Navigating to create section in edit mode, preserving form data');
+        }
       }
     }
 
@@ -378,10 +383,10 @@ const App = {
       currentSection, errorMessage,
 
       // Playlist
-      currentPlaylist, playlists, 
+      currentPlaylist, playlists, playlistRanking, tournamentStatus,
       goTo, resetCreateForm, fetchSunoPlaylist,
-      loadUserPlaylists, sharePlaylist,
-      formData, savePlaylist,
+      loadUserPlaylists, sharePlaylist, viewPlaylist, confirmDeletePlaylist,
+      formData, savePlaylist, canEditPlaylist, editPlaylist,
       
       // Verification
       verificationCode, 
