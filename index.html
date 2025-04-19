@@ -297,6 +297,24 @@
       </sl-dialog>
     </template>
     
+    <!-- Delete Confirmation Dialog Template -->
+    <template id="delete-confirmation-template">
+      <sl-dialog class="delete-confirmation-modal" label="Confirm Delete" :open="show" @sl-hide="$emit('close')">
+        <div class="delete-confirmation-container">
+          <p>Are you sure you want to delete "{{ playlistName }}"?</p>
+          <p class="warning-text">This action cannot be undone.</p>
+        </div>
+        <div slot="footer" class="dialog-footer">
+          <sl-button @click="$emit('close')" variant="neutral">
+            Cancel
+          </sl-button>
+          <sl-button @click="confirmDelete" variant="danger">
+            Delete
+          </sl-button>
+        </div>
+      </sl-dialog>
+    </template>
+    
     <template id="main-template">
         <div class="app-container">
           <!-- Login Modal Component (only shown when needed and NOT logged in) -->
@@ -312,6 +330,15 @@
             @close="showVerificationModal = false"
             @verified="handleVerificationSuccess"
           ></verification-modal>
+          
+          <!-- Delete Confirmation Modal -->
+          <delete-confirmation-modal
+            :show="showDeleteModal"
+            :playlist-name="deletePlaylistName"
+            :playlist-id="deletePlaylistId"
+            @close="showDeleteModal = false"
+            @confirm-delete="handlePlaylistDelete"
+          ></delete-confirmation-modal>
           
           <header class="app-header">
             <h1>SunoRank (Vue Version)</h1>

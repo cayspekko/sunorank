@@ -59,11 +59,31 @@ const VerificationModal = {
   }
 };
 
+// Delete Confirmation Modal Component
+const DeleteConfirmationModal = {
+  name: 'DeleteConfirmationModal',
+  template: document.getElementById('delete-confirmation-template').innerHTML,
+  props: ['show', 'playlistName', 'playlistId'],
+  emits: ['close', 'confirm-delete'],
+  setup(props, { emit }) {
+    // This is the function that will be called when the user clicks Delete in the modal
+    const confirmDelete = () => {
+      // First emit the confirm-delete event with the playlist ID
+      emit('confirm-delete', props.playlistId);
+      // Then close the modal
+      emit('close');
+    };
+    
+    return { confirmDelete };
+  }
+};
+
 const App = {
   name: 'VueApp',
   components: {
     LoginModal,
-    VerificationModal
+    VerificationModal,
+    DeleteConfirmationModal
   },
   template: document.getElementById('main-template').innerHTML,
   setup() {
@@ -77,7 +97,7 @@ const App = {
     } = useAuth();
 
     const { playlists, currentPlaylist, playlistRanking, tournamentStatus,
-      loadUserPlaylists, viewPlaylist, sharePlaylist, confirmDeletePlaylist, 
+      loadUserPlaylists, viewPlaylist, sharePlaylist, confirmDeletePlaylist, deletePlaylist,
       savePlaylist, editPlaylist, resetCreateForm, canEditPlaylist, 
       formData, fetchSunoPlaylist
     } = usePlaylist();
@@ -114,6 +134,11 @@ const App = {
     const showLoginModal = ref(true);
     const showVerificationModal = ref(true);
     const pendingAuthAction = ref(null);
+    
+    // Delete confirmation state
+    const showDeleteModal = ref(false);
+    const deletePlaylistName = ref('');
+    const deletePlaylistId = ref('');
 
     // Computed property for the Suno profile URL
     const sunoProfileUrl = computed(() => {
@@ -135,6 +160,16 @@ const App = {
     function handleVerificationSuccess() {
       showVerificationModal.value = false;
       handlePendingAction();
+    }
+    
+    // Handler function for playlist deletion
+    function handlePlaylistDelete(playlistId) {
+      console.log('Handling playlist delete in App component:', playlistId);
+      if (typeof deletePlaylist === 'function' && playlistId) {
+        deletePlaylist(playlistId);
+      } else {
+        console.error('deletePlaylist is not a function or playlistId is missing');
+      }
     }
     
     function handlePendingAction() {
@@ -385,7 +420,7 @@ const App = {
       // Playlist
       currentPlaylist, playlists, playlistRanking, tournamentStatus,
       goTo, resetCreateForm, fetchSunoPlaylist,
-      loadUserPlaylists, sharePlaylist, viewPlaylist, confirmDeletePlaylist,
+      loadUserPlaylists, sharePlaylist, viewPlaylist, confirmDeletePlaylist, deletePlaylist,
       formData, savePlaylist, canEditPlaylist, editPlaylist,
       
       // Verification
@@ -405,8 +440,12 @@ const App = {
       // Modal state
       showLoginModal,
       showVerificationModal,
+      showDeleteModal,
+      deletePlaylistName,
+      deletePlaylistId,
       handleLoginSuccess,
       handleVerificationSuccess,
+      handlePlaylistDelete,
       
       // Suno Profile URL
       sunoProfileUrl,

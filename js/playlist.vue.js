@@ -919,9 +919,19 @@ export const usePlaylist = () => {
     // Get playlist name with fallback
     const playlistName = playlist.name || 'Untitled Playlist';
     
-    // Simple confirmation dialog - this would be better with a Shoelace dialog in the future
-    if (confirm(`Are you sure you want to delete "${playlistName}"? This cannot be undone.`)) {
-      deletePlaylist(playlist.id);
+    // Use the Vue app instance to show the delete confirmation modal
+    if (window.vueApp) {
+      const appInstance = window.vueApp._instance.proxy;
+      
+      // Set the delete confirmation modal properties and show it
+      appInstance.deletePlaylistName = playlistName;
+      appInstance.deletePlaylistId = playlist.id;
+      appInstance.showDeleteModal = true;
+    } else {
+      // Fallback to basic JavaScript confirm if the app instance isn't available
+      if (confirm(`Are you sure you want to delete "${playlistName}"? This cannot be undone.`)) {
+        deletePlaylist(playlist.id);
+      }
     }
   };
   
@@ -1329,6 +1339,7 @@ export const usePlaylist = () => {
     voteOnPlaylist,
     canEditPlaylist,
     formatDeadline,
+    deletePlaylist,
     
     // Create/edit actions
     resetCreateForm,
