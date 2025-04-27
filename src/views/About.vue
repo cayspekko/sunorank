@@ -35,12 +35,12 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { ChevronDownCircleOutline, ChevronForwardCircleOutline } from '@vicons/ionicons5'
 
 // Define reactive state
-const showDetails = ref(true)
+const showDetails = ref<boolean>(true)
 
 // Component name is automatically inferred from filename
 // No need to register components - they're automatically available in the template

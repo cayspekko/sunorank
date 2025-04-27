@@ -57,20 +57,26 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { LocationOutline, MailOutline, CallOutline } from '@vicons/ionicons5'
 
+interface FormData {
+  name: string;
+  email: string;
+  message: string;
+}
+
 // Define reactive state
 const formRef = ref(null)
-const formValue = ref({
+const formValue = ref<FormData>({
   name: '',
   email: '',
   message: ''
 })
 
 // Define methods
-const handleSubmit = () => {
+const handleSubmit = (): void => {
   alert('Form submitted! (This is just a demo)')
 }
 

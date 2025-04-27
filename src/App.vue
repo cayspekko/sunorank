@@ -32,7 +32,7 @@
   </n-config-provider>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { darkTheme } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { HomeOutline, InformationCircleOutline, MailOutline } from '@vicons/ionicons5'
@@ -41,7 +41,7 @@ import { HomeOutline, InformationCircleOutline, MailOutline } from '@vicons/ioni
 const router = useRouter()
 
 // Define methods
-const navigate = (route) => {
+const navigate = (route: string): void => {
   router.push(route)
 }
 
