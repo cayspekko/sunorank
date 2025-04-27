@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="app-container sl-theme-light">
     <header>
       <sl-card class="nav-card">
         <nav>
