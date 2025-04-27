@@ -83,30 +83,13 @@ const handleSubmit = () => {
   text-align: center;
 }
 
-.page-card {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-p {
-  margin-bottom: 1rem;
-}
-
 .contact-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  max-width: 500px;
-  margin: 2rem auto;
+  max-width: 1200px;
+  margin: 1.5rem auto;
 }
 
 .contact-info {
-  margin-top: 2rem;
+  margin-top: 1.5rem;
   text-align: left;
-}
-
-/* Styling for contact info icons */
-.contact-info .n-icon {
-  margin-right: 0.5rem;
 }
 </style>

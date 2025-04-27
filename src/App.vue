@@ -50,27 +50,24 @@ const navigate = (route) => {
 </script>
 
 <style>
-/* Global font application */
-html, body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-}
-
+/* Global styles */
 .app-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1.5rem;
 }
 
 header {
-  margin-bottom: 2rem;
-}
-
-nav {
-  display: flex;
-  justify-content: center;
+  margin-bottom: 1.5rem;
 }
 
 main {
-  margin-top: 2rem;
+  margin-top: 1.5rem;
+}
+
+/* Common component styles (available to all views) */
+.page-card {
+  max-width: 1200px;
+  margin: 0 auto;
 }
 </style>

@@ -50,21 +50,4 @@ const showDetails = ref(true)
 .about {
   text-align: center;
 }
-
-.page-card {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-p {
-  margin-bottom: 1rem;
-}
-
-.mt-1 {
-  margin-top: 1rem;
-}
-
-sl-tag {
-  margin-right: 0.5rem;
-}
 </style>

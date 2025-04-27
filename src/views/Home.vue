@@ -51,82 +51,18 @@ const test = ref('')
   text-align: center;
 }
 
-.page-card {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-p {
-  margin-bottom: 1rem;
-}
-
-/* Font testing styles */
-.font-test-card {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.font-comparison h3 {
-  margin-bottom: 16px;
-  font-size: 20px;
-}
-
-/* Roboto font styles */
-.roboto-heading {
-  font-family: 'Roboto', sans-serif;
-  font-size: 22px;
-  font-weight: 500;
-  margin-bottom: 18px;
-}
-
-.system-heading {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-  font-weight: bold;
-  font-size: 20px;
-}
-
-.roboto-text {
-  font-family: 'Roboto', sans-serif;
-  line-height: 1.6;
-  margin-bottom: 12px;
-}
-
-.weight-300 {
-  font-weight: 300;
-}
-
-.weight-400 {
-  font-weight: 400;
-}
-
-.weight-500 {
-  font-weight: 500;
-}
-
-.weight-600 {
-  font-weight: 600;
-}
-
-.weight-700 {
-  font-weight: 700;
-}
+/* Just the minimal styles needed for the font demo */
+.weight-300 { font-weight: 300; }
+.weight-400 { font-weight: 400; }
+.weight-500 { font-weight: 500; }
+.weight-700 { font-weight: 700; }
 
 .system-font {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 16px;
-  margin-bottom: 12px;
-}
-
-.combined-text {
-  font-family: 'Roboto', sans-serif;
-  font-size: 16px;
-  line-height: 1.6;
-  margin-top: 15px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
 }
 
 .highlight {
   font-weight: 600;
   color: #36ad6a;
-  font-size: 17px;
 }
 </style>
