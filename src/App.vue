@@ -1,47 +1,68 @@
 <template>
-  <div class="app-container sl-theme-light">
-    <header>
-      <sl-card class="nav-card">
-        <nav>
-          <sl-button-group label="Navigation">
-            <sl-button variant="primary" href="/" @click.prevent="navigate('/')">Home</sl-button>
-            <sl-button variant="primary" href="/about" @click.prevent="navigate('/about')">About</sl-button>
-            <sl-button variant="primary" href="/contact" @click.prevent="navigate('/contact')">Contact</sl-button>
-          </sl-button-group>
-        </nav>
-      </sl-card>
-    </header>
-    <main>
-      <router-view></router-view>
-    </main>
-  </div>
+  <n-config-provider :theme="darkTheme">
+    <n-layout>
+      <div class="app-container">
+        <header>
+          <n-card class="nav-card">
+            <nav>
+              <n-space>
+                <n-button-group>
+                  <n-button type="primary" @click="navigate('/')">
+                    <template #icon><n-icon><home-outline /></n-icon></template>
+                    Home
+                  </n-button>
+                  <n-button type="primary" @click="navigate('/about')">
+                    <template #icon><n-icon><information-circle-outline /></n-icon></template>
+                    About
+                  </n-button>
+                  <n-button type="primary" @click="navigate('/contact')">
+                    <template #icon><n-icon><mail-outline /></n-icon></template>
+                    Contact
+                  </n-button>
+                </n-button-group>
+              </n-space>
+            </nav>
+          </n-card>
+        </header>
+        <main>
+          <router-view></router-view>
+        </main>
+      </div>
+    </n-layout>
+  </n-config-provider>
 </template>
 
-<script>
-export default {
-  name: 'App',
-  methods: {
-    navigate(route) {
-      this.$router.push(route);
-    }
-  }
+<script setup>
+import { darkTheme } from 'naive-ui'
+import { useRouter } from 'vue-router'
+import { HomeOutline, InformationCircleOutline, MailOutline } from '@vicons/ionicons5'
+
+// Get router instance
+const router = useRouter()
+
+// Define methods
+const navigate = (route) => {
+  router.push(route)
 }
+
+// Component name is automatically inferred from filename
+// No need to register components - they're automatically available in the template
 </script>
 
 <style>
+/* Global font application */
+html, body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
 .app-container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
-  font-family: Arial, sans-serif;
 }
 
 header {
   margin-bottom: 2rem;
-}
-
-.nav-card {
-  --padding: 1rem;
 }
 
 nav {

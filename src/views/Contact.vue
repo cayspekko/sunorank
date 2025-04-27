@@ -1,41 +1,81 @@
 <template>
   <div class="contact">
-    <sl-card class="page-card">
-      <h1 slot="header">Contact Page</h1>
+    <n-card class="page-card">
+      <template #header>
+        <h1>Contact Page</h1>
+      </template>
       <p>Get in touch with us using the form below:</p>
       
-      <form class="contact-form" @submit.prevent="handleSubmit">
-        <sl-input label="Name" placeholder="Your name" required></sl-input>
-        <sl-input type="email" label="Email" placeholder="Your email" required></sl-input>
-        <sl-textarea label="Message" placeholder="Your message" rows="4" required></sl-textarea>
-        <sl-button type="submit" variant="success">Send Message</sl-button>
-      </form>
+      <n-form ref="formRef" :model="formValue" class="contact-form" @submit.prevent="handleSubmit">
+        <n-form-item label="Name" path="name">
+          <n-input v-model:value="formValue.name" placeholder="Your name" />
+        </n-form-item>
+        <n-form-item label="Email" path="email">
+          <n-input v-model:value="formValue.email" placeholder="Your email" />
+        </n-form-item>
+        <n-form-item label="Message" path="message">
+          <n-input
+            v-model:value="formValue.message"
+            type="textarea"
+            placeholder="Your message"
+            :rows="4"
+          />
+        </n-form-item>
+        <n-button type="success" @click="handleSubmit">Send Message</n-button>
+      </n-form>
       
-      <sl-divider></sl-divider>
+      <n-divider />
       
       <div class="contact-info">
-        <sl-card>
-          <strong slot="header">Contact Information</strong>
-          <sl-icon-button name="geo-alt-fill" label="Location"></sl-icon-button> 123 Vue Street, Web City
-          <br>
-          <sl-icon-button name="envelope-fill" label="Email"></sl-icon-button> hello@example.com
-          <br>
-          <sl-icon-button name="telephone-fill" label="Phone"></sl-icon-button> (123) 456-7890
-        </sl-card>
+        <n-card>
+          <template #header>
+            <strong>Contact Information</strong>
+          </template>
+          <n-space vertical>
+            <n-space>
+              <n-icon size="18">
+                <location-outline />
+              </n-icon>
+              123 Vue Street, Web City
+            </n-space>
+            <n-space>
+              <n-icon size="18">
+                <mail-outline />
+              </n-icon>
+              hello@example.com
+            </n-space>
+            <n-space>
+              <n-icon size="18">
+                <call-outline />
+              </n-icon>
+              (123) 456-7890
+            </n-space>
+          </n-space>
+        </n-card>
       </div>
-    </sl-card>
+    </n-card>
   </div>
 </template>
 
-<script>
-export default {
-  name: 'ContactPage',
-  methods: {
-    handleSubmit() {
-      alert('Form submitted! (This is just a demo)');
-    }
-  }
+<script setup>
+import { ref } from 'vue'
+import { LocationOutline, MailOutline, CallOutline } from '@vicons/ionicons5'
+
+// Define reactive state
+const formRef = ref(null)
+const formValue = ref({
+  name: '',
+  email: '',
+  message: ''
+})
+
+// Define methods
+const handleSubmit = () => {
+  alert('Form submitted! (This is just a demo)')
 }
+
+// Component name is automatically inferred from filename
+// No need to register components - they're automatically available in the template
 </script>
 
 <style scoped>
@@ -46,10 +86,6 @@ export default {
 .page-card {
   max-width: 800px;
   margin: 0 auto;
-}
-
-h1 {
-  color: #2c3e50;
 }
 
 p {
@@ -69,8 +105,8 @@ p {
   text-align: left;
 }
 
-sl-icon-button {
-  font-size: 1.2rem;
+/* Styling for contact info icons */
+.contact-info .n-icon {
   margin-right: 0.5rem;
 }
 </style>
