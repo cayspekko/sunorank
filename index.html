@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vue 3 + Naive UI Dark Theme</title>
+    <title>SunoRank - Suno Profile Dashboard</title>
     <!-- Load Roboto font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,16 +14,12 @@
         font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
         margin: 0;
         padding: 0;
-        background-color: #101014; /* Fallback dark color before Vue mounts */
-      }
-      /* Once Naive UI loads, this will take precedence */
-      :root[class*="n-"] body {
-        background-color: var(--n-body-color);
+        background-color: #101014; /* Dark background from the start */
       }
     </style>
   </head>
   <body>
     <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -1,0 +1,27 @@
+services:
+  # Vue.js application
+  vue-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - firebase-emulator
+
+  # Firebase Emulator
+  firebase-emulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.firebase
+    ports:
+      - "4000:4000"
+      - "9099:9099"
+      - "8080:8080"
+    volumes:
+      - .:/app
