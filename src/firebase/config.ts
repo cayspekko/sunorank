@@ -25,7 +25,7 @@ const functions = getFunctions(app);
 if (import.meta.env.DEV) {
   connectAuthEmulator(auth, 'http://localhost:9099');
   connectFirestoreEmulator(db, 'localhost', 8080);
-  // connectFunctionsEmulator(functions, 'localhost', 5001);
+  connectFunctionsEmulator(functions, 'localhost', 5001);
   console.log('🔥 Connected to Firebase emulators');
 }
 
