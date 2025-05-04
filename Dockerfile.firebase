@@ -6,15 +6,18 @@ RUN apk add --no-cache openjdk11
 WORKDIR /app
 
 # Install Firebase tools
-RUN npm install -g firebase-tools@14.2.1
+RUN npm install -g firebase-tools@14.2.1 
 
 # Copy Firebase configuration files
 COPY firebase.json ./
 COPY firestore.rules ./
 COPY firestore.indexes.json ./
+COPY functions ./functions
+
+RUN cd functions && npm install
 
 # Expose Firebase emulator ports
 EXPOSE 9099 8080 5001 4000
 
-# Start Firebase emulators in non-interactive mode
-CMD ["firebase", "emulators:start", "--only", "auth,firestore,ui", "--project", "sunorank", "--non-interactive"]
+# Start Firebase emulators in non-interactive mode with data persistence
+CMD ["firebase", "emulators:start", "--only", "auth,firestore,functions,ui", "--project", "sunorank", "--import=/app/firebase-data", "--export-on-exit=/app/firebase-data", "--non-interactive"]

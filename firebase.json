@@ -3,6 +3,14 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs22",
+    "region": "us-central1",
+    "predeploy": [
+      "npm --prefix \"$RESOURCE_DIR\" install"
+    ]
+  },
   "emulators": {
     "auth": {
       "port": 9099,

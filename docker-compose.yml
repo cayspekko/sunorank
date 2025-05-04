@@ -23,5 +23,12 @@ services:
       - "4000:4000"
       - "9099:9099"
       - "8080:8080"
+      - "5001:5001"
     volumes:
-      - .:/app
+      - ./functions:/app/functions
+      - firebase-data:/app/firebase-data
+    environment:
+      - FIREBASE_EMULATOR_DATA=/app/firebase-data
+
+volumes:
+  firebase-data:
