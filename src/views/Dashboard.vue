@@ -80,14 +80,11 @@ import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { 
   LogoGoogle,
-  AddOutline,
-  CreateOutline,
-  TrashOutline,
-  ShareSocialOutline
+  AddOutline
 } from '@vicons/ionicons5'
 import { useAuth } from '../composables/useAuth'
 import { useMessage } from 'naive-ui'
-import { getFirestore, collection, getDocs, doc, deleteDoc, query, where, orderBy, limit } from 'firebase/firestore'
+import { collection, getDocs, doc, deleteDoc, query, where, orderBy, limit } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import type { Playlist } from '../types/playlist'
 import PlaylistCard from '../components/playlist/PlaylistCard.vue'
@@ -96,8 +93,6 @@ import PlaylistModal from '../components/playlist/PlaylistModal.vue'
 // Get authentication functionality
 const { 
   user,
-  profile, 
-  loading: authLoading, 
   isLoggedIn, 
   loginWithGoogle 
 } = useAuth()
@@ -127,27 +122,9 @@ const fetchPlaylists = async () => {
     // Log debugging information
     console.log('Fetching playlists for user ID:', user.value.uid)
     
-    // Try simpler query first without orderBy
-    const playlistsRef = collection(db, 'playlists')
-    
-    // Query 1: Just get all playlists to see what's in the database
-    console.log('Getting all playlists first to verify data...')
-    const allPlaylistsSnapshot = await getDocs(collection(db, 'playlists'))
-    console.log(`Total playlists in database: ${allPlaylistsSnapshot.size}`)
-    allPlaylistsSnapshot.forEach(doc => {
-      console.log('Found playlist:', doc.id, doc.data())
-    })
-    
-    // Query 2: Only filter by userId without sorting
-    console.log('Querying playlists with userId filter only...')
-    const simpleQuery = query(playlistsRef, where('userId', '==', user.value.uid))
-    const simpleSnapshot = await getDocs(simpleQuery)
-    console.log(`Playlists matching userId: ${simpleSnapshot.size}`)
-    
-    // Query 3: Original query with sorting
     console.log('Executing main query with sorting...')
     const q = query(
-      playlistsRef, 
+      collection(db, 'playlists'), 
       where('userId', '==', user.value.uid),
       orderBy('updatedAt', 'desc'),
       limit(50)
