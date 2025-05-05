@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme="darkTheme">
+  <n-config-provider :theme="darkTheme" :theme-overrides="themeOverrides">
     <n-loading-bar-provider>
       <n-message-provider>
         <n-layout>
@@ -69,7 +69,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { darkTheme } from 'naive-ui'
+import { darkTheme, GlobalThemeOverrides } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { 
   HomeOutline, 

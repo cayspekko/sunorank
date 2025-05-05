@@ -11,5 +11,17 @@ service cloud.firestore {
       allow read: if true; // Anyone can read user profiles
       allow write: if request.auth != null && request.auth.uid == userId;
     }
+    
+    // Allow users to create and manage their own playlists
+    match /playlists/{playlistId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    
+    // Allow authenticated users to list all playlists (needed for queries)
+    match /playlists {
+      allow list: if request.auth != null;
+    }
   }
 }

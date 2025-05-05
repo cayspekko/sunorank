@@ -26,9 +26,7 @@ services:
       - "5001:5001"
     volumes:
       - ./functions:/app/functions
-      - firebase-data:/app/firebase-data
-    environment:
-      - FIREBASE_EMULATOR_DATA=/app/firebase-data
+      - firebase-data:/data
 
 volumes:
   firebase-data:

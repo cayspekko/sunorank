@@ -20,4 +20,4 @@ RUN cd functions && npm install
 EXPOSE 9099 8080 5001 4000
 
 # Start Firebase emulators in non-interactive mode with data persistence
-CMD ["firebase", "emulators:start", "--only", "auth,firestore,functions,ui", "--project", "sunorank", "--import=/app/firebase-data", "--export-on-exit=/app/firebase-data", "--non-interactive"]
+CMD ["firebase", "emulators:start", "--only", "auth,firestore,functions,ui", "--project", "sunorank", "--import=/data/firebase", "--export-on-exit", "--non-interactive"]
