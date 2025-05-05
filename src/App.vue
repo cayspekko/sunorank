@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme="darkTheme" :theme-overrides="themeOverrides">
+  <n-config-provider :theme="darkTheme">
     <n-loading-bar-provider>
       <n-message-provider>
         <n-layout>
@@ -69,7 +69,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { darkTheme, GlobalThemeOverrides } from 'naive-ui'
+import { darkTheme } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { 
   HomeOutline, 
@@ -86,10 +86,8 @@ const router = useRouter()
 
 // Get authentication functionality
 const { 
-  user, 
   profile, 
   loading, 
-  error, 
   isLoggedIn, 
   loginWithGoogle, 
   logout 
@@ -118,7 +116,7 @@ const navigate = (route: string): void => {
   router.push(route)
 }
 
-const handleUserMenuSelect = (key: string): void => {
+const handleUserMenuSelect = (_: string): void => {
   // The click handlers are already defined in the options
   // This is just here for the type safety of the dropdown component
 }

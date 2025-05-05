@@ -86,7 +86,7 @@ import { useAuth } from '../composables/useAuth'
 import { useMessage } from 'naive-ui'
 import { collection, getDocs, doc, deleteDoc, query, where, orderBy, limit } from 'firebase/firestore'
 import { db } from '../firebase/config'
-import type { Playlist } from '../types/playlist'
+import type { Playlist } from '../types/playlist.ts'
 import PlaylistCard from '../components/playlist/PlaylistCard.vue'
 import PlaylistModal from '../components/playlist/PlaylistModal.vue'
 
