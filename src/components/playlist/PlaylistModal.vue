@@ -12,6 +12,17 @@
         :model="formValue"
         :rules="rules"
       >
+        <n-form-item path="sunoUrl" label="Import from Suno (Optional)">
+          <n-input-group>
+            <n-input v-model:value="sunoPlaylistUrl" placeholder="Paste a Suno playlist or song URL" />
+            <n-button :loading="importLoading" @click="importFromSuno">Import</n-button>
+          </n-input-group>
+          <template #feedback>
+            <span v-if="importError" style="color: var(--n-error-color)">{{ importError }}</span>
+            <span v-else-if="importSuccess" style="color: var(--n-success-color)">{{ importSuccess }}</span>
+          </template>
+        </n-form-item>
+
         <n-form-item path="title" label="Title">
           <n-input v-model:value="formValue.title" placeholder="Playlist title" />
         </n-form-item>
@@ -62,7 +73,7 @@ import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/fi
 import { db } from '../../firebase/config'
 import { useAuth } from '../../composables/useAuth'
 import type { FormInst } from 'naive-ui'
-import type { Playlist } from '../../types/playlist'
+import type { Playlist, Track } from '../../types/playlist'
 
 const props = defineProps<{
   show: boolean,
@@ -87,11 +98,16 @@ const showLocal = computed({
 // Form state
 const formRef = ref<FormInst | null>(null)
 const loading = ref(false)
+const importLoading = ref(false)
+const importError = ref('')
+const importSuccess = ref('')
+const sunoPlaylistUrl = ref('')
 const formValue = ref({
   title: '',
   description: '',
   imageUrl: '',
-  isPublic: false
+  isPublic: false,
+  tracks: [] as Track[]
 })
 
 // Watch for playlist changes to update form values in edit mode
@@ -103,7 +119,8 @@ watch(
         title: newPlaylist.title,
         description: newPlaylist.description,
         imageUrl: newPlaylist.imageUrl || '',
-        isPublic: newPlaylist.isPublic
+        isPublic: newPlaylist.isPublic,
+        tracks: newPlaylist.tracks || []
       }
     } else {
       // Reset form when not in edit mode
@@ -111,7 +128,8 @@ watch(
         title: '',
         description: '',
         imageUrl: '',
-        isPublic: false
+        isPublic: false,
+        tracks: []
       }
     }
   },
@@ -155,10 +173,170 @@ const handleCancel = () => {
       title: '',
       description: '',
       imageUrl: '',
-      isPublic: false
+      isPublic: false,
+      tracks: []
     }
+    sunoPlaylistUrl.value = ''
+    importError.value = ''
   }
   showLocal.value = false
+}
+
+// Suno import functionality (for both playlists and single songs)
+const importFromSuno = async () => {
+  if (!sunoPlaylistUrl.value) {
+    importError.value = 'Please enter a Suno playlist or song URL'
+    return
+  }
+
+  importLoading.value = true
+  importError.value = ''
+  importSuccess.value = ''
+
+  try {
+    // Determine if this is a playlist or single song URL
+    const url = sunoPlaylistUrl.value.trim()
+    let isPlaylist = false
+    let apiUrl = ''
+    let id = ''
+    
+    // Parse the URL and extract the ID
+    if (url.includes('/api/playlist/') || url.includes('/playlist/')) {
+      isPlaylist = true
+      
+      // Extract playlist ID
+      if (url.includes('/api/playlist/')) {
+        id = url.split('/api/playlist/').pop() || ''
+      } else if (url.includes('/playlist/')) {
+        id = url.split('/playlist/').pop() || ''
+      }
+      
+      // Remove trailing slashes or query parameters
+      id = id.split('/')[0].split('?')[0]
+      
+      // Validate playlist ID format
+      if (!id.match(/^[a-f0-9-]{36}$/)) {
+        importError.value = 'Invalid playlist ID format'
+        importLoading.value = false
+        return
+      }
+      
+      apiUrl = `https://studio-api.prod.suno.com/api/playlist/${id}`
+    } 
+    // Check if it's a single song URL
+    else if (url.includes('/api/clip/') || url.includes('/song/')) {
+      isPlaylist = false
+      
+      // Extract song ID
+      if (url.includes('/api/clip/')) {
+        id = url.split('/api/clip/').pop() || ''
+      } else if (url.includes('/song/')) {
+        id = url.split('/song/').pop() || ''
+      }
+      
+      // Remove trailing slashes or query parameters
+      id = id.split('/')[0].split('?')[0]
+      
+      // Validate song ID format
+      if (!id.match(/^[a-f0-9-]{36}$/)) {
+        importError.value = 'Invalid song ID format'
+        importLoading.value = false
+        return
+      }
+      
+      apiUrl = `https://studio-api.prod.suno.com/api/clip/${id}`
+    } else {
+      importError.value = 'Unrecognized Suno URL format. Please use a playlist or song URL.'
+      importLoading.value = false
+      return
+    }
+    
+    // Fetch the data from the Suno API
+    const response = await fetch(apiUrl)
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch from Suno API: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    console.log('Suno API response:', data)
+    
+    // Process based on whether it's a playlist or single song
+    const tracks: Track[] = []
+    
+    if (isPlaylist) {
+      // Update form values with the playlist data
+      formValue.value.title = data.name || 'Imported Playlist'
+      // If name isn't available, try to use the first track title
+      if (!formValue.value.title && data.playlist_clips?.[0]?.clip?.title) {
+        formValue.value.title = data.playlist_clips[0].clip.title
+      }
+      
+      formValue.value.description = data.description || 'Imported from Suno'
+      formValue.value.imageUrl = data.image_url || ''
+      // If image_url isn't available, try to use the first track's image
+      if (!formValue.value.imageUrl && data.playlist_clips?.[0]?.clip?.image_url) {
+        formValue.value.imageUrl = data.playlist_clips[0].clip.image_url
+      }
+      
+      // Map the playlist clips to tracks
+      if (data.playlist_clips && Array.isArray(data.playlist_clips)) {
+        data.playlist_clips.forEach((item: any) => {
+          if (item.clip) {
+            const clip = item.clip
+            // Extract track data using the exact property names from the API response
+            const track: Track = {
+              id: clip.id,
+              title: clip.title || 'Untitled Track',
+              // The artist name is in the parent item object
+              artist: item.display_name || clip.display_name || 'Unknown Artist',
+              imageUrl: clip.image_url || clip.image_large_url,
+              audioUrl: clip.audio_url,
+              duration: typeof clip.metadata?.duration === 'number' ? clip.metadata.duration : 0,
+              addedAt: Date.now()
+            }
+            
+            console.log('Adding track from playlist:', track)
+            tracks.push(track)
+          }
+        })
+      }
+      
+      importSuccess.value = `Successfully imported playlist with ${tracks.length} tracks`
+    } else {
+      // Single song - create a playlist with just this song
+      // The song data is directly in the response
+      formValue.value.title = data.title ? `${data.title} - Playlist` : 'Single Song Playlist'
+      formValue.value.description = data.metadata?.prompt ? 
+        `Playlist created from Suno song: ${data.title}\n\nOriginal prompt: ${data.metadata.prompt.slice(0, 300)}${data.metadata.prompt.length > 300 ? '...' : ''}` : 
+        `Playlist created from Suno song: ${data.title || 'Untitled'}`
+      formValue.value.imageUrl = data.image_url || data.image_large_url || ''
+      
+      // Create a track for this single song
+      const track: Track = {
+        id: data.id,
+        title: data.title || 'Untitled Track',
+        artist: data.display_name || 'Unknown Artist',
+        imageUrl: data.image_url || data.image_large_url,
+        audioUrl: data.audio_url,
+        duration: typeof data.metadata?.duration === 'number' ? data.metadata.duration : 0,
+        addedAt: Date.now()
+      }
+      
+      console.log('Adding single track:', track)
+      tracks.push(track)
+      
+      importSuccess.value = `Successfully imported song: ${data.title || 'Untitled Track'}`
+    }
+    
+    console.log('Final tracks array:', tracks)
+    formValue.value.tracks = tracks
+  } catch (error) {
+    console.error('Error importing Suno playlist:', error)
+    importError.value = 'Failed to import playlist. Please check the URL and try again.'
+  } finally {
+    importLoading.value = false
+  }
 }
 
 const handleSubmit = (e: MouseEvent) => {
@@ -184,6 +362,7 @@ const handleSubmit = (e: MouseEvent) => {
           description: formValue.value.description,
           imageUrl: formValue.value.imageUrl || null,
           isPublic: formValue.value.isPublic,
+          tracks: formValue.value.tracks || props.playlist.tracks || [],
           updatedAt: serverTimestamp()
         })
 
@@ -197,7 +376,7 @@ const handleSubmit = (e: MouseEvent) => {
           isPublic: formValue.value.isPublic,
           createdAt: props.playlist.createdAt,
           updatedAt: Date.now(),
-          tracks: props.playlist.tracks
+          tracks: formValue.value.tracks || props.playlist.tracks
         }
 
         message.success('Playlist updated successfully')
@@ -210,29 +389,30 @@ const handleSubmit = (e: MouseEvent) => {
         
         // For debugging
         console.log('Creating playlist with user ID:', user.value?.uid)
+        console.log('Tracks being saved:', formValue.value.tracks)
         
         const docRef = await addDoc(playlistsRef, {
           title: formValue.value.title,
           description: formValue.value.description,
           imageUrl: formValue.value.imageUrl || null,
           userId: user.value?.uid as string,
-          tracks: [], // Empty array for tracks
+          tracks: formValue.value.tracks || [], // Use the imported tracks
           isPublic: formValue.value.isPublic,
           createdAt: now,
           updatedAt: now
         })
 
-        // Create the playlist object to return
+         const newPlaylistId = docRef.id
         const newPlaylist: Playlist = {
-          id: docRef.id,
+          id: newPlaylistId,
           title: formValue.value.title,
           description: formValue.value.description,
+          userId: user.value.uid,
           imageUrl: formValue.value.imageUrl || undefined,
-          userId: user.value?.uid as string,
-          tracks: [],
           isPublic: formValue.value.isPublic,
-          createdAt: now,
-          updatedAt: now
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          tracks: formValue.value.tracks || []
         }
 
         message.success('Playlist created successfully')
