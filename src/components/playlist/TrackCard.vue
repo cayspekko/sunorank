@@ -18,7 +18,7 @@
       <n-gi :span="6">
         <div class="track-info">
           <h3>
-            <n-button text tag="a" :href="track.audioUrl" target="_blank">
+            <n-button text tag="a" :href="'https://suno.com/song/' + track.id" target="_blank">
               {{ track.title }}
             </n-button>
           </h3>
