@@ -9,11 +9,11 @@
                 <div class="nav-container">
                   <nav class="main-nav">
                     <n-button-group>
-                      <n-button type="primary" @click="navigate('/')">
+                      <!-- <n-button type="primary" @click="navigate('/')">
                         <template #icon><n-icon><home-outline /></n-icon></template>
                         Home
-                      </n-button>
-                      <n-button type="primary" @click="navigate('/dashboard')">
+                      </n-button> -->
+                      <n-button type="primary" @click="navigate('/')">
                         <template #icon><n-icon><grid-outline /></n-icon></template>
                         Dashboard
                       </n-button>
@@ -21,10 +21,10 @@
                         <template #icon><n-icon><information-circle-outline /></n-icon></template>
                         About
                       </n-button>
-                      <n-button type="primary" @click="navigate('/contact')">
+                      <!-- <n-button type="primary" @click="navigate('/contact')">
                         <template #icon><n-icon><mail-outline /></n-icon></template>
                         Contact
-                      </n-button>
+                      </n-button> -->
                     </n-button-group>
                   </nav>
                   <div class="auth-section">
