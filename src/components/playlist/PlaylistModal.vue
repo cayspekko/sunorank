@@ -46,6 +46,27 @@
             <template #unchecked>Private</template>
           </n-switch>
         </n-form-item>
+        
+        <n-form-item path="rankingMethod" label="Ranking Method">
+          <n-select v-model:value="formValue.rankingMethod" :options="rankingOptions" />
+        </n-form-item>
+        
+        <n-form-item path="votingEnabled" label="Enable Voting">
+          <n-switch v-model:value="formValue.votingEnabled">
+            <template #checked>Enabled</template>
+            <template #unchecked>Disabled</template>
+          </n-switch>
+        </n-form-item>
+
+        <n-form-item path="allowVoteChanges" label="Allow Vote Changes" v-if="formValue.votingEnabled">
+          <n-switch v-model:value="formValue.allowVoteChanges">
+            <template #checked>Allowed</template>
+            <template #unchecked>Not Allowed</template>
+          </n-switch>
+          <template #feedback>
+            <span>When disabled, users can vote only once and cannot change their vote later</span>
+          </template>
+        </n-form-item>
       </n-form>
 
       <div class="preview-image" v-if="formValue.imageUrl">
@@ -102,11 +123,21 @@ const importLoading = ref(false)
 const importError = ref('')
 const importSuccess = ref('')
 const sunoPlaylistUrl = ref('')
+// Ranking method options
+const rankingOptions = [
+  { label: 'Star Rating (1-5)', value: 'star' },
+  { label: 'Upvote/Downvote', value: 'updown' },
+  { label: 'Favorites', value: 'favorite' }
+]
+
 const formValue = ref({
   title: '',
   description: '',
   imageUrl: '',
   isPublic: false,
+  rankingMethod: 'star' as const,
+  votingEnabled: true,
+  allowVoteChanges: true,
   tracks: [] as Track[]
 })
 
@@ -120,6 +151,9 @@ watch(
         description: newPlaylist.description,
         imageUrl: newPlaylist.imageUrl || '',
         isPublic: newPlaylist.isPublic,
+        rankingMethod: newPlaylist.rankingMethod || 'star',
+        votingEnabled: newPlaylist.votingEnabled !== undefined ? newPlaylist.votingEnabled : true,
+        allowVoteChanges: newPlaylist.allowVoteChanges !== undefined ? newPlaylist.allowVoteChanges : true,
         tracks: newPlaylist.tracks || []
       }
     } else {
@@ -129,6 +163,9 @@ watch(
         description: '',
         imageUrl: '',
         isPublic: false,
+        rankingMethod: 'star',
+        votingEnabled: true,
+        allowVoteChanges: true,
         tracks: []
       }
     }
@@ -362,6 +399,9 @@ const handleSubmit = (e: MouseEvent) => {
           description: formValue.value.description,
           imageUrl: formValue.value.imageUrl || null,
           isPublic: formValue.value.isPublic,
+          rankingMethod: formValue.value.rankingMethod,
+          votingEnabled: formValue.value.votingEnabled,
+          allowVoteChanges: formValue.value.allowVoteChanges,
           tracks: formValue.value.tracks || props.playlist.tracks || [],
           updatedAt: serverTimestamp()
         })
@@ -374,6 +414,8 @@ const handleSubmit = (e: MouseEvent) => {
           imageUrl: formValue.value.imageUrl || undefined,
           userId: props.playlist.userId,
           isPublic: formValue.value.isPublic,
+          rankingMethod: formValue.value.rankingMethod,
+          votingEnabled: formValue.value.votingEnabled,
           createdAt: props.playlist.createdAt,
           updatedAt: Date.now(),
           tracks: formValue.value.tracks || props.playlist.tracks
@@ -398,6 +440,9 @@ const handleSubmit = (e: MouseEvent) => {
           userId: user.value?.uid as string,
           tracks: formValue.value.tracks || [], // Use the imported tracks
           isPublic: formValue.value.isPublic,
+          rankingMethod: formValue.value.rankingMethod,
+          votingEnabled: formValue.value.votingEnabled,
+          allowVoteChanges: formValue.value.allowVoteChanges,
           createdAt: now,
           updatedAt: now
         })
@@ -410,6 +455,9 @@ const handleSubmit = (e: MouseEvent) => {
           userId: user.value.uid,
           imageUrl: formValue.value.imageUrl || undefined,
           isPublic: formValue.value.isPublic,
+          rankingMethod: formValue.value.rankingMethod,
+          votingEnabled: formValue.value.votingEnabled,
+          allowVoteChanges: formValue.value.allowVoteChanges,
           createdAt: Date.now(),
           updatedAt: Date.now(),
           tracks: formValue.value.tracks || []

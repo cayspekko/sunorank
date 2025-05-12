@@ -4,6 +4,8 @@ import About from '../views/About.vue'
 import Contact from '../views/Contact.vue'
 import Profile from '../views/Profile.vue'
 import Dashboard from '../views/Dashboard.vue'
+import PlaylistView from '../views/PlaylistView.vue'
+import VoteView from '../views/VoteView.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -30,6 +32,18 @@ const routes: Array<RouteRecordRaw> = [
     path: '/dashboard',
     name: 'Dashboard',
     component: Dashboard
+  },
+  {
+    path: '/playlist/:id',
+    name: 'Playlist',
+    component: PlaylistView,
+    props: true
+  },
+  {
+    path: '/vote/:id',
+    name: 'Vote',
+    component: VoteView,
+    props: true
   }
 ]
 

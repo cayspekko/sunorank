@@ -23,5 +23,29 @@ service cloud.firestore {
     match /playlists {
       allow list: if request.auth != null;
     }
+    
+    // Allow users to create, read, update, and delete their own votes
+    match /votes/{voteId} {
+      allow read: if request.auth != null;
+      
+      // Users can only create votes with their own userId
+      allow create: if request.auth != null && 
+                     request.resource.data.userId == request.auth.uid;
+      
+      // Users can only update their own votes and only if the playlist allows vote changes
+      allow update: if request.auth != null && 
+                     resource.data.userId == request.auth.uid &&
+                     get(/databases/$(database)/documents/playlists/$(resource.data.playlistId)).data.allowVoteChanges == true;
+      
+      // Users can only delete their own votes and only if the playlist allows vote changes
+      allow delete: if request.auth != null && 
+                     resource.data.userId == request.auth.uid &&
+                     get(/databases/$(database)/documents/playlists/$(resource.data.playlistId)).data.allowVoteChanges == true;
+    }
+    
+    // Allow authenticated users to list votes (needed for queries)
+    match /votes {
+      allow list: if request.auth != null;
+    }
   }
 }
