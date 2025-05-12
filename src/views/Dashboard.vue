@@ -68,7 +68,7 @@
       <template #action>
         <div class="modal-actions">
           <n-button @click="showDeleteConfirmModal = false">Cancel</n-button>
-          <n-button type="error" @click="deletePlaylist">Delete</n-button>
+          <n-button type="error" @click="handleDeleteConfirmed">Delete</n-button>
         </div>
       </template>
     </n-modal>
@@ -76,17 +76,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { 
-  LogoGoogle,
-  AddOutline
-} from '@vicons/ionicons5'
-import { useAuth } from '../composables/useAuth'
 import { useMessage } from 'naive-ui'
-import { collection, getDocs, doc, deleteDoc, query, where, orderBy, limit } from 'firebase/firestore'
+import { useAuth } from '../composables/useAuth'
+import { usePlaylistActions } from '../composables/usePlaylistActions'
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore'
 import { db } from '../firebase/config'
-import type { Playlist } from '../types/playlist.ts'
+import { Playlist } from '../types/playlist'
+import { LogoGoogle, AddOutline } from '@vicons/ionicons5'
 import PlaylistCard from '../components/playlist/PlaylistCard.vue'
 import PlaylistModal from '../components/playlist/PlaylistModal.vue'
 
@@ -99,6 +97,9 @@ const {
 
 const router = useRouter()
 const message = useMessage()
+
+// Import playlist actions composable
+const { isOwner, sharePlaylist, deletePlaylist, viewPlaylist } = usePlaylistActions()
 
 // State
 const playlists = ref<Playlist[]>([])
@@ -170,57 +171,20 @@ const confirmDeletePlaylist = (playlist: Playlist) => {
   showDeleteConfirmModal.value = true
 }
 
-const deletePlaylist = async () => {
+// Use the composable deletePlaylist method with our UI handling
+const handleDeleteConfirmed = async () => {
   if (!currentPlaylist.value) return
   
-  try {
-    const playlistRef = doc(db, 'playlists', currentPlaylist.value.id)
-    await deleteDoc(playlistRef)
-    
-    // Remove from local state
-    playlists.value = playlists.value.filter((p: Playlist) => p.id !== currentPlaylist.value?.id)
-    
-    showDeleteConfirmModal.value = false
-    message.success('Playlist deleted successfully')
-  } catch (error) {
-    console.error('Error deleting playlist:', error)
-    message.error('Failed to delete playlist')
-  }
-}
-
-const sharePlaylist = (playlist: Playlist) => {
-  // Generate a shareable URL
-  const shareUrl = `${window.location.origin}/playlist/${playlist.id}`
+  const success = await deletePlaylist(currentPlaylist.value)
   
-  // Try to use Web Share API if available
-  if (navigator.share) {
-    navigator.share({
-      title: `SunoRank: ${playlist.title}`,
-      text: `Check out this Suno playlist: ${playlist.title}`,
-      url: shareUrl
-    }).catch(err => {
-      console.error('Error sharing:', err)
-      // Fallback: copy to clipboard
-      copyToClipboard(shareUrl)
-    })
-  } else {
-    // Fallback: copy to clipboard
-    copyToClipboard(shareUrl)
+  if (success) {
+    // Remove from local state without needing another Firestore fetch
+    playlists.value = playlists.value.filter(p => p.id !== currentPlaylist.value?.id)
+    showDeleteConfirmModal.value = false
   }
 }
 
-const copyToClipboard = (text: string) => {
-  navigator.clipboard.writeText(text).then(() => {
-    message.success('Share link copied to clipboard!')
-  }).catch(err => {
-    console.error('Failed to copy:', err)
-    message.error('Failed to copy share link')
-  })
-}
-
-const viewPlaylist = (playlist: Playlist) => {
-  router.push(`/playlist/${playlist.id}`)
-}
+// We're not directly exposing these methods anymore - using the composable instead
 
 // Handle modal events
 const handlePlaylistCreated = () => {

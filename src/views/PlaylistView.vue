@@ -1,9 +1,16 @@
 <template>
   <div class="playlist-container">
+    <playlist-modal 
+      v-if="playlist"
+      :show="showPlaylistModal" 
+      :playlist="playlist" 
+      @update:show="showPlaylistModal = $event"
+      @updated="handlePlaylistUpdated"
+    />
     <n-spin :show="loading">
       <div v-if="playlist">
         <div class="playlist-header">
-          <n-space vertical>
+          <div class="playlist-content">
             <div class="playlist-image-title">
               <n-avatar
                 v-if="playlist.imageUrl"
@@ -20,7 +27,49 @@
                 </p>
               </div>
             </div>
-          </n-space>
+            
+            <div class="playlist-actions">
+              <n-space>
+                <!-- Share button - available to everyone -->
+                <n-button @click="sharePlaylist(playlist)">
+                  <template #icon>
+                    <n-icon><share-icon /></n-icon>
+                  </template>
+                  Share
+                </n-button>
+                
+                <!-- Edit button - only for owner -->
+                <n-button 
+                  v-if="isOwner(playlist)" 
+                  type="primary" 
+                  @click="openEditModal(playlist)"
+                >
+                  <template #icon>
+                    <n-icon><edit-icon /></n-icon>
+                  </template>
+                  Edit
+                </n-button>
+                
+                <!-- Delete button - only for owner -->
+                <n-popconfirm
+                  v-if="isOwner(playlist)"
+                  positive-text="Delete"
+                  negative-text="Cancel"
+                  @positive-click="handleDeletePlaylist(playlist)"
+                >
+                  <template #trigger>
+                    <n-button type="error">
+                      <template #icon>
+                        <n-icon><trash-icon /></n-icon>
+                      </template>
+                      Delete
+                    </n-button>
+                  </template>
+                  Are you sure you want to delete this playlist? This action cannot be undone.
+                </n-popconfirm>
+              </n-space>
+            </div>
+          </div>
         </div>
 
         <div class="ranking-info">
@@ -77,9 +126,16 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useAuth } from '../composables/useAuth'
-import { Playlist, TrackWithRanking } from '../types/playlist'
-import { MusicalNoteOutline as MusicIcon } from '@vicons/ionicons5'
+import { usePlaylistActions } from '../composables/usePlaylistActions'
+import { Playlist, TrackWithRanking, Vote } from '../types/playlist'
+import { 
+  MusicalNoteOutline as MusicIcon,
+  ShareSocialOutline as ShareIcon,
+  TrashOutline as TrashIcon,
+  PencilOutline as EditIcon
+} from '@vicons/ionicons5'
 import TrackCard from '../components/playlist/TrackCard.vue'
+import PlaylistModal from '../components/playlist/PlaylistModal.vue'
 import * as playlistService from '../firebase/playlistService'
 
 const props = defineProps<{
@@ -90,10 +146,13 @@ const router = useRouter()
 const route = useRoute()
 const message = useMessage()
 const { user, isLoggedIn } = useAuth()
+// Import and use the playlist actions composable
+const { isOwner, sharePlaylist, deletePlaylist } = usePlaylistActions()
 
 const loading = ref(true)
 const playlist = ref<Playlist | null>(null)
 const votes = ref<Vote[]>([])
+const showPlaylistModal = ref(false)
 
 const tracksWithRanking = computed<TrackWithRanking[]>(() => {
   if (!playlist.value?.tracks || !playlist.value?.rankingMethod) return []
@@ -132,6 +191,32 @@ const getRankingMethodLabel = (): string => {
 
 const navigateToVote = (track: TrackWithRanking) => {
   router.push(`/vote/${playlist.value?.id}?track=${track.id}`)
+}
+
+// Playlist action methods
+const openEditModal = (playlist: Playlist) => {
+  if (!isOwner(playlist)) {
+    message.error('You can only edit your own playlists')
+    return
+  }
+  showPlaylistModal.value = true
+}
+
+const handleDeletePlaylist = async (playlistToDelete: Playlist) => {
+  const success = await deletePlaylist(playlistToDelete)
+  
+  if (success) {
+    // Navigate back to dashboard after successful deletion
+    router.push('/dashboard')
+  }
+  // No need to handle the false case as the deletePlaylist function already shows error messages
+}
+
+const handlePlaylistUpdated = (updatedPlaylist: Playlist) => {
+  if (playlist.value) {
+    playlist.value = updatedPlaylist
+    message.success('Playlist updated successfully')
+  }
 }
 
 const fetchPlaylist = async () => {
@@ -196,14 +281,27 @@ onMounted(() => {
 }
 
 .playlist-header {
+  margin-bottom: 20px;
+}
+
+.playlist-content {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 20px;
 }
 
 .playlist-image-title {
   display: flex;
   gap: 20px;
+  flex: 1;
+}
+
+.playlist-actions {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 10px;
 }
 
 .title-info {

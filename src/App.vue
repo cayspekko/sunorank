@@ -13,6 +13,10 @@
                         <template #icon><n-icon><home-outline /></n-icon></template>
                         Home
                       </n-button>
+                      <n-button type="primary" @click="navigate('/dashboard')">
+                        <template #icon><n-icon><grid-outline /></n-icon></template>
+                        Dashboard
+                      </n-button>
                       <n-button type="primary" @click="navigate('/about')">
                         <template #icon><n-icon><information-circle-outline /></n-icon></template>
                         About
@@ -76,7 +80,8 @@ import {
   InformationCircleOutline, 
   MailOutline, 
   LogOutOutline,
-  LogoGoogle
+  LogoGoogle,
+  GridOutline
 } from '@vicons/ionicons5'
 import { useAuth } from './composables/useAuth'
 import type { DropdownOption } from 'naive-ui'
