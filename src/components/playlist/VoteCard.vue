@@ -279,11 +279,11 @@ function formatDuration(duration: number): string {
 
 function getRatingText(rating: number): string {
   if (props.rankingMethod === 'star') {
-    if (rating === 1) return 'Terrible'
-    if (rating === 2) return 'Bad'
-    if (rating === 3) return 'Okay'
-    if (rating === 4) return 'Good'
-    if (rating === 5) return 'Amazing!'
+    if (rating === 1) return 'Eh, not for me'
+    if (rating === 2) return 'Getting into it'
+    if (rating === 3) return 'Pretty catchy'
+    if (rating === 4) return 'Really good'
+    if (rating === 5) return 'Banger alert!'
     return ''
   }
   return ''
