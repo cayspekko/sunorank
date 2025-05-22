@@ -7,130 +7,132 @@
           <n-icon size="64"><music-icon /></n-icon>
         </div>
       </div>
-      <div class="track-info">
-        <h2>{{ track.title }}</h2>
-        <p class="artist">{{ track.artist }}</p>
-        <n-button class="listen-button" type="primary" tag="a" :href="'https://suno.com/song/' + track.id" target="_blank">
-          <template #icon><n-icon><headphones-icon /></n-icon></template>
-          Listen on Suno
-        </n-button>
-        <div v-if="track.duration" class="duration">
-          Duration: {{ formatDuration(track.duration) }}
-        </div>
-      </div>
+      <TrackInfo :track="track" />
     </div>
     <div class="voting-section">
-      <n-card title="Rate this track" :bordered="false">
-        <template v-if="rankingMethod === 'star'">
-          <div class="rating-container">
-            <p>Your rating:</p>
-            <n-rate 
-              v-model:value="userRating" 
-              :count="5"
-              :default-value="existingVote?.rating || 0"
-              @update:value="ratingChanged"
-            />
-            <p v-if="userRating" class="rating-text">
-              {{ getRatingText(userRating) }}
-            </p>
-          </div>
-        </template>
-        <template v-else-if="rankingMethod === 'updown'">
-          <div class="updown-container">
-            <p>Your vote:</p>
-            <div class="updown-buttons">
-              <n-button 
-                :type="userRating === 1 ? 'primary' : 'default'" 
-                @click="userRating = 1; ratingChanged(1)"
-              >
-                <template #icon>
-                  <n-icon><thumb-up-icon /></n-icon>
-                </template>
-                Upvote
-              </n-button>
-              <n-button 
-                :type="userRating === -1 ? 'error' : 'default'" 
-                @click="userRating = -1; ratingChanged(-1)"
-              >
-                <template #icon>
-                  <n-icon><thumb-down-icon /></n-icon>
-                </template>
-                Downvote
-              </n-button>
-            </div>
-          </div>
-        </template>
-        <template v-else>
-          <div class="favorite-container">
-            <p>Add to favorites?</p>
-            <n-button 
-              :type="userRating === 1 ? 'primary' : 'default'" 
-              @click="userRating = userRating === 1 ? 0 : 1; ratingChanged(userRating)"
-            >
-              <template #icon>
-                <n-icon>
-                  <heart-icon v-if="userRating === 1" />
-                  <heart-outline-icon v-else />
-                </n-icon>
-              </template>
-              {{ userRating === 1 ? 'Favorited' : 'Add to Favorites' }}
-            </n-button>
-          </div>
-        </template>
-        <div class="vote-actions">
-          <n-space justify="center">
-            <template v-if="existingVote && !allowVoteChanges">
-              <n-alert type="warning" title="Vote locked">
-                Your vote has been recorded. This playlist does not allow changing votes.
-              </n-alert>
+      <n-grid :cols="2" :x-gap="16">
+        <!-- Left side: Voting controls -->
+        <n-gi>
+          <n-card title="Rate this track" :bordered="true" class="voting-card">
+            <template v-if="rankingMethod === 'star'">
+              <div class="rating-container">
+                <p>Your rating:</p>
+                <n-rate 
+                  v-model:value="userRating" 
+                  :count="5"
+                  :default-value="existingVote?.rating || 0"
+                  @update:value="ratingChanged"
+                />
+                <p v-if="userRating" class="rating-text">
+                  {{ getRatingText(userRating) }}
+                </p>
+              </div>
+            </template>
+            <template v-else-if="rankingMethod === 'updown'">
+              <div class="updown-container">
+                <p>Your vote:</p>
+                <div class="updown-buttons">
+                  <n-button 
+                    :type="userRating === 1 ? 'primary' : 'default'" 
+                    @click="userRating = 1; ratingChanged(1)"
+                  >
+                    <template #icon>
+                      <n-icon><thumb-up-icon /></n-icon>
+                    </template>
+                    Upvote
+                  </n-button>
+                  <n-button 
+                    :type="userRating === -1 ? 'error' : 'default'" 
+                    @click="userRating = -1; ratingChanged(-1)"
+                  >
+                    <template #icon>
+                      <n-icon><thumb-down-icon /></n-icon>
+                    </template>
+                    Downvote
+                  </n-button>
+                </div>
+              </div>
             </template>
             <template v-else>
-              <n-button 
-                type="primary" 
-                :disabled="!userRatingChanged || submitLoading" 
-                :loading="submitLoading"
-                @click="submitVote"
-              >
-                {{ existingVote ? 'Update Vote' : 'Submit Vote' }}
-              </n-button>
-              <n-button 
-                v-if="existingVote && allowVoteChanges" 
-                @click="removeVote" 
-                :loading="removeLoading"
-              >
-                Remove Vote
-              </n-button>
+              <div class="favorite-container">
+                <p>Add to favorites?</p>
+                <n-button 
+                  :type="userRating === 1 ? 'primary' : 'default'" 
+                  @click="userRating = userRating === 1 ? 0 : 1; ratingChanged(userRating)"
+                >
+                  <template #icon>
+                    <n-icon>
+                      <heart-icon v-if="userRating === 1" />
+                      <heart-outline-icon v-else />
+                    </n-icon>
+                  </template>
+                  {{ userRating === 1 ? 'Favorited' : 'Add to Favorites' }}
+                </n-button>
+              </div>
             </template>
-          </n-space>
-        </div>
-      </n-card>
-      <div class="current-rating" v-if="currentStats.voteCount > 0">
-        <n-card title="Current Rating" :bordered="false">
-          <template v-if="rankingMethod === 'star'">
-            <div class="stats-container">
-              <n-rate 
-                readonly 
-                :value="currentStats.averageRating" 
-                :allow-half="true"
-              />
-              <p>{{ currentStats.averageRating.toFixed(1) }} average from {{ currentStats.voteCount }} votes</p>
+            <div class="vote-actions">
+              <n-space justify="center">
+                <template v-if="existingVote && !allowVoteChanges">
+                  <n-alert type="warning" title="Vote locked">
+                    Your vote has been recorded. This playlist does not allow changing votes.
+                  </n-alert>
+                </template>
+                <template v-else>
+                  <n-button 
+                    type="primary" 
+                    :disabled="!userRatingChanged || submitLoading" 
+                    :loading="submitLoading"
+                    @click="submitVote"
+                  >
+                    {{ existingVote ? 'Update Vote' : 'Submit Vote' }}
+                  </n-button>
+                  <n-button 
+                    v-if="existingVote && allowVoteChanges" 
+                    @click="removeVote" 
+                    :loading="removeLoading"
+                  >
+                    Remove Vote
+                  </n-button>
+                </template>
+              </n-space>
             </div>
-          </template>
-          <template v-else-if="rankingMethod === 'updown'">
-            <div class="stats-container">
-              <p>
-                Score: {{ currentStats.score }}
-                ({{ currentStats.upvotes }} upvotes, {{ currentStats.downvotes }} downvotes)
-              </p>
-            </div>
-          </template>
-          <template v-else>
-            <div class="stats-container">
-              <p>{{ currentStats.voteCount }} users have favorited this track</p>
-            </div>
-          </template>
-        </n-card>
-      </div>
+          </n-card>
+        </n-gi>
+        
+        <!-- Right side: Current rating -->
+        <n-gi>
+          <n-card v-if="currentStats.voteCount > 0" title="Current Rating" :bordered="true" class="rating-card">
+            <template v-if="rankingMethod === 'star'">
+              <div class="stats-container">
+                <n-rate 
+                  readonly 
+                  :value="currentStats.averageRating" 
+                  :allow-half="true"
+                />
+                <p>{{ currentStats.averageRating.toFixed(1) }} average from {{ currentStats.voteCount }} votes</p>
+              </div>
+            </template>
+            <template v-else-if="rankingMethod === 'updown'">
+              <div class="stats-container">
+                <p>
+                  Score: {{ currentStats.score }}
+                  ({{ currentStats.upvotes }} upvotes, {{ currentStats.downvotes }} downvotes)
+                </p>
+              </div>
+            </template>
+            <template v-else>
+              <div class="stats-container">
+                <p>{{ currentStats.voteCount }} users have favorited this track</p>
+              </div>
+            </template>
+          </n-card>
+          <div v-else class="empty-rating-card">
+            <n-card title="Current Rating" :bordered="true">
+              <p>No votes yet</p>
+            </n-card>
+          </div>
+        </n-gi>
+      </n-grid>
     </div>
   </n-card>
 </template>
@@ -139,9 +141,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useAuth } from '../../composables/useAuth'
-import { MusicalNoteOutline as MusicIcon, HeadsetOutline as HeadphonesIcon, ThumbsUpOutline as ThumbUpIcon, ThumbsDownOutline as ThumbDownIcon, HeartOutline as HeartOutlineIcon, Heart as HeartIcon } from '@vicons/ionicons5'
+import { MusicalNoteOutline as MusicIcon, ThumbsUpOutline as ThumbUpIcon, ThumbsDownOutline as ThumbDownIcon, HeartOutline as HeartOutlineIcon, Heart as HeartIcon } from '@vicons/ionicons5'
 import { Vote, Track, Playlist } from '../../types/playlist'
 import * as playlistService from '../../firebase/playlistService'
+import TrackInfo from './TrackInfo.vue'
 
 const props = defineProps<{
   track: Track,
@@ -180,7 +183,7 @@ const currentStats = computed(() => {
 function formatDuration(duration: number): string {
   if (!duration) return ''
   const min = Math.floor(duration / 60)
-  const sec = duration % 60
+  const sec = Math.floor(duration % 60)
   return `${min}:${sec.toString().padStart(2, '0')}`
 }
 
@@ -318,7 +321,7 @@ onMounted(() => {
 }
 .track-content {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 16px;
 }
 .track-image-container {
@@ -344,16 +347,70 @@ onMounted(() => {
 .track-info {
   flex: 1;
 }
+.artist-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.artist-avatar {
+  margin-right: 8px;
+}
+.artist {
+  margin: 0;
+}
 .voting-section {
-  margin-top: 16px;
+  margin-top: 24px;
+}
+.voting-card, .rating-card {
+  height: 100%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.empty-rating-card {
+  height: 100%;
 }
 .rating-container, .updown-container, .favorite-container {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 .vote-actions {
-  margin-top: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 .stats-container {
   margin-top: 8px;
+  text-align: center;
+}
+.updown-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+.rating-text {
+  margin-top: 8px;
+  font-weight: bold;
+  text-align: center;
+}
+.track-tags {
+  font-size: 0.8rem;
+}
+.title-container {
+  margin: 0 0 4px 0;
+}
+
+.track-title {
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.duration {
+  display: flex;
+  align-items: center;
+  color: var(--n-text-color-2);
+  font-size: 0.9rem;
+}
+
+.duration-icon {
+  margin-right: 4px;
+  color: var(--n-text-color-3);
 }
 </style>

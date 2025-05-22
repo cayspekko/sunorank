@@ -18,6 +18,8 @@ export interface Track {
   title: string;
   artist: string;
   imageUrl?: string;
+  avatarImageUrl?: string;
+  tags?: string;
   audioUrl: string;
   duration?: number;
   addedAt: Date | number;

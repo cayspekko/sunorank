@@ -116,18 +116,20 @@ const emitShare = () => emit('share', props.playlist)
 
 .card-image-container {
   width: 100%;
-  height: 180px;
+  height: 200px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 8px 8px 0 0;
 }
 
 .card-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background-color: #191919; /* Dark background for the padding */
 }
 
 .card-header {
@@ -151,13 +153,14 @@ const emitShare = () => emit('share', props.playlist)
 
 .playlist-description {
   margin-top: 0;
-  margin-bottom: 8px;
-  font-size: 0.9rem;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
+  color: var(--n-text-color-2);
 }
 
 .playlist-tracks, .playlist-updated {

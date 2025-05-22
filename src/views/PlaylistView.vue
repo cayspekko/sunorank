@@ -30,6 +30,17 @@
             
             <div class="playlist-actions">
               <n-space>
+                <!-- Vote button - available when voting is enabled -->
+                <n-button 
+                  v-if="playlist.votingEnabled"
+                  type="success" 
+                  @click="$router.push(`/vote/${playlist.id}`)">
+                  <template #icon>
+                    <n-icon><star-icon /></n-icon>
+                  </template>
+                  Vote Now
+                </n-button>
+                
                 <!-- Share button - available to everyone -->
                 <n-button @click="sharePlaylist(playlist)">
                   <template #icon>
@@ -132,7 +143,8 @@ import {
   MusicalNoteOutline as MusicIcon,
   ShareSocialOutline as ShareIcon,
   TrashOutline as TrashIcon,
-  PencilOutline as EditIcon
+  PencilOutline as EditIcon,
+  Star as StarIcon
 } from '@vicons/ionicons5'
 import TrackCard from '../components/playlist/TrackCard.vue'
 import PlaylistModal from '../components/playlist/PlaylistModal.vue'

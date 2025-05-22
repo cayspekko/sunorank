@@ -327,6 +327,8 @@ const importFromSuno = async () => {
               title: clip.title || 'Untitled Track',
               // The artist name is in the parent item object
               artist: item.display_name || clip.display_name || 'Unknown Artist',
+              avatarImageUrl: item.avatar_image_url || clip.avatar_image_url || '',
+              tags: clip.metadata?.tags || '',
               imageUrl: clip.image_url || clip.image_large_url,
               audioUrl: clip.audio_url,
               duration: typeof clip.metadata?.duration === 'number' ? clip.metadata.duration : 0,
@@ -354,6 +356,8 @@ const importFromSuno = async () => {
         id: data.id,
         title: data.title || 'Untitled Track',
         artist: data.display_name || 'Unknown Artist',
+        tags: data.metadata?.tags || '',
+        avatarImageUrl: data.avatar_image_url,
         imageUrl: data.image_url || data.image_large_url,
         audioUrl: data.audio_url,
         duration: typeof data.metadata?.duration === 'number' ? data.metadata.duration : 0,

@@ -16,30 +16,26 @@
         </div>
       </n-gi>
       <n-gi :span="6">
-        <div class="track-info">
-          <h3>
-            <n-button text tag="a" :href="'https://suno.com/song/' + track.id" target="_blank">
-              {{ track.title }}
-            </n-button>
-          </h3>
-          <p>{{ track.artist }}</p>
-          <div v-if="track.voteCount !== undefined" class="rating-info">
-            <template v-if="rankingMethod === 'star'">
-              <n-rate 
-                readonly 
-                :value="track.averageRating || 0" 
-                :allow-half="true"
-              />
-              <span>({{ track.averageRating?.toFixed(1) || '0.0' }}) - {{ track.voteCount }} votes</span>
-            </template>
-            <template v-else-if="rankingMethod === 'updown'">
-              <span>Score: {{ track.averageRating?.toFixed(0) || '0' }} ({{ track.voteCount }} votes)</span>
-            </template>
-            <template v-else>
-              <span>{{ track.voteCount }} favorites</span>
-            </template>
-          </div>
-        </div>
+        <TrackInfo :track="track">
+          <template #rating-info>
+            <div v-if="track.voteCount !== undefined" class="rating-info">
+              <template v-if="rankingMethod === 'star'">
+                <n-rate 
+                  readonly 
+                  :value="track.averageRating || 0" 
+                  :allow-half="true"
+                />
+                <span>({{ track.averageRating?.toFixed(1) || '0.0' }}) - {{ track.voteCount }} votes</span>
+              </template>
+              <template v-else-if="rankingMethod === 'updown'">
+                <span>Score: {{ track.averageRating?.toFixed(0) || '0' }} ({{ track.voteCount }} votes)</span>
+              </template>
+              <template v-else>
+                <span>{{ track.voteCount }} favorites</span>
+              </template>
+            </div>
+          </template>
+        </TrackInfo>
       </n-gi>
       <n-gi :span="2">
         <div class="track-actions">
@@ -53,6 +49,7 @@
 <script setup lang="ts">
 import { MusicalNoteOutline as MusicIcon } from '@vicons/ionicons5'
 import { TrackWithRanking, RankingMethod } from '../../types/playlist'
+import TrackInfo from './TrackInfo.vue'
 
 defineProps<{
   track: TrackWithRanking,
@@ -93,15 +90,44 @@ defineProps<{
   border: 1px solid var(--n-border-color);
 }
 
+/* Ensure proper vertical alignment with the Track Info component */
+.n-grid {
+  align-items: flex-start;
+}
+
 .track-info {
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
-.track-info h3 {
+.artist-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.artist-avatar {
+  margin-right: 8px;
+}
+
+.artist-name {
+  margin: 0;
+}
+
+.track-tags {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 2px 0 8px 0;
+}
+
+.title-container {
   margin: 0 0 4px 0;
+}
+
+.track-title {
   font-size: 1.1rem;
+  font-weight: bold;
 }
 
 .track-info p {
