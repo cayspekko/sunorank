@@ -53,6 +53,52 @@
                 </div>
               </div>
             </template>
+            <template v-else-if="rankingMethod === 'ranked'">
+              <div class="ranked-container">
+                <p>Select your top 3 tracks:</p>
+                <div class="ranked-buttons">
+                  <div class="rank-selection">
+                    <n-button 
+                      :type="userRank === 1 ? 'primary' : 'default'" 
+                      @click="setUserRank(1)"
+                      class="rank-button"
+                    >
+                      <template #icon>
+                        <n-icon color="#D4AF37"><trophy-icon /></n-icon>
+                      </template>
+                      1st
+                    </n-button>
+                    <n-button 
+                      :type="userRank === 2 ? 'primary' : 'default'" 
+                      @click="setUserRank(2)"
+                      class="rank-button"
+                    >
+                      <template #icon>
+                        <n-icon color="#A9A9B0"><trophy-icon /></n-icon>
+                      </template>
+                      2nd
+                    </n-button>
+                    <n-button 
+                      :type="userRank === 3 ? 'primary' : 'default'" 
+                      @click="setUserRank(3)"
+                      class="rank-button"
+                    >
+                      <template #icon>
+                        <n-icon color="#A97142"><trophy-icon /></n-icon>
+                      </template>
+                      3rd
+                    </n-button>
+                  </div>
+                  <n-button 
+                    v-if="userRank" 
+                    @click="clearUserRank()"
+                    class="clear-rank-button"
+                  >
+                    Clear Selection
+                  </n-button>
+                </div>
+              </div>
+            </template>
             <template v-else>
               <div class="favorite-container">
                 <p>Add to favorites?</p>
@@ -120,6 +166,25 @@
                 </p>
               </div>
             </template>
+            <template v-else-if="rankingMethod === 'ranked'">
+              <div class="stats-container">
+                <div class="ranked-stats">
+                  <p class="ranked-stats-title">Total points: {{ currentStats.pointsTotal }}</p>
+                  <div class="ranked-breakdown">
+                    <div class="rank-stat">
+                      <span class="rank-position">1st:</span> {{ currentStats.firstPlaceVotes }}
+                    </div>
+                    <div class="rank-stat">
+                      <span class="rank-position">2nd:</span> {{ currentStats.secondPlaceVotes }}
+                    </div>
+                    <div class="rank-stat">
+                      <span class="rank-position">3rd:</span> {{ currentStats.thirdPlaceVotes }}
+                    </div>
+                  </div>
+                  <p class="ranked-explanation">Points: 1st = 3pts, 2nd = 2pts, 3rd = 1pt</p>
+                </div>
+              </div>
+            </template>
             <template v-else>
               <div class="stats-container">
                 <p>{{ currentStats.voteCount }} users have favorited this track</p>
@@ -141,7 +206,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useAuth } from '../../composables/useAuth'
-import { MusicalNoteOutline as MusicIcon, ThumbsUpOutline as ThumbUpIcon, ThumbsDownOutline as ThumbDownIcon, HeartOutline as HeartOutlineIcon, Heart as HeartIcon } from '@vicons/ionicons5'
+import { MusicalNoteOutline as MusicIcon, ThumbsUpOutline as ThumbUpIcon, ThumbsDownOutline as ThumbDownIcon, HeartOutline as HeartOutlineIcon, Heart as HeartIcon, Trophy as TrophyIcon } from '@vicons/ionicons5'
 import { Vote, Track, Playlist } from '../../types/playlist'
 import * as playlistService from '../../firebase/playlistService'
 import TrackInfo from './TrackInfo.vue'
@@ -156,11 +221,13 @@ const props = defineProps<{
 const message = useMessage()
 const { user, isLoggedIn } = useAuth()
 const userRating = ref(0)
+const userRank = ref(0)
 const userRatingChanged = ref(false)
 const submitLoading = ref(false)
 const removeLoading = ref(false)
 const existingVote = ref<Vote | null>(null)
 const allVotes = ref<Vote[]>([])
+const otherUserRankedVotes = ref<{[key: number]: Vote}>({})
 
 const currentStats = computed(() => {
   if (!allVotes.value.length) {
@@ -169,7 +236,11 @@ const currentStats = computed(() => {
       averageRating: 0,
       upvotes: 0,
       downvotes: 0,
-      score: 0
+      score: 0,
+      firstPlaceVotes: 0,
+      secondPlaceVotes: 0,
+      thirdPlaceVotes: 0,
+      pointsTotal: 0
     }
   }
   const voteCount = allVotes.value.length
@@ -177,7 +248,26 @@ const currentStats = computed(() => {
   const upvotes = allVotes.value.filter(v => v.rating === 1).length
   const downvotes = allVotes.value.filter(v => v.rating === -1).length
   const score = upvotes - downvotes
-  return { voteCount, averageRating, upvotes, downvotes, score }
+  
+  // For ranked voting
+  const firstPlaceVotes = allVotes.value.filter(v => v.rank === 1).length
+  const secondPlaceVotes = allVotes.value.filter(v => v.rank === 2).length
+  const thirdPlaceVotes = allVotes.value.filter(v => v.rank === 3).length
+  
+  // Points calculation: 1st place = 3 points, 2nd place = 2 points, 3rd place = 1 point
+  const pointsTotal = (firstPlaceVotes * 3) + (secondPlaceVotes * 2) + thirdPlaceVotes
+  
+  return { 
+    voteCount, 
+    averageRating, 
+    upvotes, 
+    downvotes, 
+    score, 
+    firstPlaceVotes, 
+    secondPlaceVotes, 
+    thirdPlaceVotes, 
+    pointsTotal 
+  }
 })
 
 function formatDuration(duration: number): string {
@@ -199,71 +289,107 @@ function getRatingText(rating: number): string {
   return ''
 }
 
-function ratingChanged(rating: number) {
-  userRating.value = rating
+function ratingChanged(value: number) {
+  userRating.value = value
   userRatingChanged.value = true
+}
+
+function setUserRank(rank: number) {
+  // If we have an existing vote for this rank from another track, warn the user
+  if (otherUserRankedVotes.value[rank]) {
+    const existingTrack = otherUserRankedVotes.value[rank]
+    message.warning(`You've already ranked another track as ${getRankText(rank)}. Submitting will replace that ranking.`)
+  }
+  // set the total rating (reverse the rank) #todo: total number of ranks could be a config option
+  userRating.value = 4 - rank
+  userRank.value = rank
+  userRatingChanged.value = true
+}
+
+function clearUserRank() {
+  userRank.value = 0
+  userRatingChanged.value = true
+}
+
+function getRankText(rank: number): string {
+  if (rank === 1) return '1st'
+  if (rank === 2) return '2nd'
+  if (rank === 3) return '3rd'
+  return ''
 }
 
 async function fetchVotes() {
   try {
-    // Get all votes for this track
+    // Fetch votes for this track
     allVotes.value = await playlistService.getVotesForTrack(props.playlistId, props.track.id)
     
-    // Check if user has already voted
-    if (isLoggedIn.value && user.value) {
-      const userVote = allVotes.value.find(vote => vote.userId === user.value?.uid)
-      if (userVote) {
-        existingVote.value = userVote
-        userRating.value = userVote.rating
+    // If user is logged in, get their vote
+    if (isLoggedIn.value) {
+      existingVote.value = await playlistService.getUserVoteForTrack(
+        props.playlistId, 
+        props.track.id, 
+        user.value?.uid || ''
+      )
+      
+      // If they have a vote, update the local rating
+      if (existingVote.value) {
+        userRating.value = existingVote.value.rating || 0
+        userRank.value = existingVote.value.rank || 0
+      }
+      
+      // For ranked voting, get the user's other ranked votes for this playlist
+      if (props.rankingMethod === 'ranked' && user.value) {
+        const userVotes = await playlistService.getUserVotesForPlaylist(props.playlistId, user.value.uid)
+        
+        // Create a map of rank -> vote for quick lookup, excluding the current track
+        otherUserRankedVotes.value = {}
+        userVotes.forEach(vote => {
+          if (vote.trackId !== props.track.id && vote.rank) {
+            otherUserRankedVotes.value[vote.rank] = vote
+          }
+        })
       }
     }
-  } catch (error) {
-    console.error('Error fetching votes:', error)
+  } catch (err) {
+    console.error('Error fetching votes:', err)
     message.error('Failed to load votes')
   }
 }
 
 async function submitVote() {
-  // Double check auth status
   if (!isLoggedIn.value || !user.value) {
     message.error('You must be logged in to vote')
     return
   }
   
-  if (!userRatingChanged.value) {
-    message.info('No changes to save')
-    return
-  }
-  
-  // Check if this is an update and if votes can be changed
-  if (existingVote.value && !props.allowVoteChanges) {
-    message.error('This playlist does not allow changing votes')
-    return
-  }
-  
-  submitLoading.value = true
-  
   try {
-    // Use the playlistService to save the vote
-    await playlistService.saveVote({
+    submitLoading.value = true
+    
+    const voteData = {
+      userId: user.value.uid,
       playlistId: props.playlistId,
       trackId: props.track.id,
-      userId: user.value.uid,
-      rating: userRating.value
-    })
+      rating: userRating.value,
+      rank: props.rankingMethod === 'ranked' ? userRank.value : undefined
+    }
     
-    message.success(existingVote.value ? 'Vote updated successfully' : 'Vote submitted successfully')
+    await playlistService.saveVote(voteData)
     
-    // Refresh votes
-    await fetchVotes()
+    message.success('Vote submitted successfully')
     userRatingChanged.value = false
-  } catch (error) {
-    console.error('Error saving vote:', error)
-    // Display more specific error message if available
-    if (error instanceof Error) {
-      message.error(error.message)
+    
+    // Refetch votes to update the UI
+    await fetchVotes()
+  } catch (err) {
+    console.error('Error submitting vote:', err)
+    if (err instanceof Error) {
+      if (err.message.includes('Vote changes are not allowed')) {
+        message.error('Vote changes are not allowed for this playlist')
+      } else {
+        message.error('Failed to submit vote')
+      }
     } else {
-      message.error('Failed to save vote')
+      message.error('Failed to submit vote')
     }
   } finally {
     submitLoading.value = false
@@ -293,6 +419,7 @@ async function removeVote() {
     // Reset UI state
     existingVote.value = null
     userRating.value = 0
+    userRank.value = 0
     userRatingChanged.value = false
     
     // Refresh votes
@@ -317,59 +444,131 @@ onMounted(() => {
 
 <style scoped>
 .vote-card {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
+
 .track-content {
   display: flex;
-  align-items: flex-start;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
+
 .track-image-container {
-  width: 120px;
-  height: 120px;
-  margin-right: 24px;
+  width: 150px;
+  height: 150px;
+  margin-right: 20px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
 }
+
 .track-image-container img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 8px;
 }
+
 .no-image {
   width: 100%;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #222;
-  border-radius: 8px;
+  background-color: var(--n-color);
+  border: 1px solid var(--n-border-color);
 }
-.track-info {
-  flex: 1;
-}
-.artist-container {
-  display: flex;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.artist-avatar {
-  margin-right: 8px;
-}
-.artist {
-  margin: 0;
-}
+
 .voting-section {
-  margin-top: 24px;
+  margin-top: 16px;
 }
+
 .voting-card, .rating-card {
   height: 100%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
+
 .empty-rating-card {
   height: 100%;
 }
-.rating-container, .updown-container, .favorite-container {
+
+.rating-container, .updown-container, .favorite-container, .ranked-container {
   margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.updown-buttons {
+  display: flex;
+  gap: 16px;
+}
+
+.rating-text {
+  margin-top: 8px;
+  font-weight: bold;
+}
+
+/* Ranked voting specific styles */
+.ranked-container {
+  width: 100%;
+}
+
+.ranked-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.rank-selection {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  justify-content: center;
+  width: 100%;
+}
+
+.rank-button {
+  min-width: 90px;
+  flex: 1;
+}
+
+.clear-rank-button {
+  margin-top: 8px;
+}
+
+.ranked-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.ranked-stats-title {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.ranked-breakdown {
+  display: flex;
+  justify-content: space-around;
+  width: 100%;
+  margin: 8px 0;
+}
+
+.rank-stat {
+  display: flex;
+  gap: 4px;
+}
+
+.rank-position {
+  font-weight: bold;
+}
+
+.ranked-explanation {
+  font-size: 0.8rem;
+  color: var(--n-text-color-3);
+  margin-top: 8px;
 }
 .vote-actions {
   margin-top: 16px;

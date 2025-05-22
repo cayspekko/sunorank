@@ -30,6 +30,23 @@
               <template v-else-if="rankingMethod === 'updown'">
                 <span>Score: {{ track.averageRating?.toFixed(0) || '0' }} ({{ track.voteCount }} votes)</span>
               </template>
+              <template v-else-if="rankingMethod === 'ranked'">
+                <span>Score: {{ track.averageRating?.toFixed(0) || '0' }}</span>
+                <div class="rank-distribution">
+                  <n-tag :color="{ color: '#D4AF37', textColor: '#000' }" size="small" round>
+                    <template #icon><n-icon><trophy /></n-icon></template>
+                    {{ track.votesByRank?.[1] || 0 }}
+                  </n-tag>
+                  <n-tag :color="{ color: '#A9A9B0', textColor: '#000' }" size="small" round>
+                    <template #icon><n-icon><trophy /></n-icon></template>
+                    {{ track.votesByRank?.[2] || 0 }}
+                  </n-tag>
+                  <n-tag :color="{ color: '#A97142', textColor: '#000' }" size="small" round>
+                    <template #icon><n-icon><trophy /></n-icon></template>
+                    {{ track.votesByRank?.[3] || 0 }}
+                  </n-tag>
+                </div>
+              </template>
               <template v-else>
                 <span>{{ track.voteCount }} favorites</span>
               </template>
@@ -48,6 +65,7 @@
 
 <script setup lang="ts">
 import { MusicalNoteOutline as MusicIcon } from '@vicons/ionicons5'
+import { TrophyOutline as Trophy, MedalOutline as Medal, PodiumOutline as Podium } from '@vicons/ionicons5'
 import { TrackWithRanking, RankingMethod } from '../../types/playlist'
 import TrackInfo from './TrackInfo.vue'
 
@@ -139,6 +157,13 @@ defineProps<{
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.rank-distribution {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
 }
 
 .track-actions {

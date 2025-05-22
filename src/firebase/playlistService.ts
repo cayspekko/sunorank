@@ -195,6 +195,35 @@ export const getUserVoteForTrack = async (
 };
 
 /**
+ * Gets all votes from a specific user for a playlist
+ */
+export const getUserVotesForPlaylist = async (
+  playlistId: string,
+  userId: string
+): Promise<Vote[]> => {
+  try {
+    const q = query(
+      collection(db, 'votes'),
+      where('playlistId', '==', playlistId),
+      where('userId', '==', userId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt
+      } as Vote;
+    });
+  } catch (error) {
+    console.error('Error fetching user votes for playlist:', error);
+    throw error;
+  }
+};
+
+/**
  * Create or update a vote - uses composite ID and respects allowVoteChanges setting
  */
 export const saveVote = async (vote: Omit<Vote, 'id' | 'createdAt'>): Promise<string> => {
@@ -299,6 +328,13 @@ export const calculateRankings = (
     const voteCount = trackVotes.length;
     let averageRating = 0;
     
+    // Initialize vote counts by rank
+    let votesByRank = {
+      1: 0, // 1st place votes
+      2: 0, // 2nd place votes
+      3: 0  // 3rd place votes
+    };
+    
     if (voteCount > 0) {
       if (rankingMethod === 'star') {
         // Calculate average star rating
@@ -308,6 +344,25 @@ export const calculateRankings = (
         // For updown, the rating is +1 or -1, so sum is the score
         const sum = trackVotes.reduce((acc, vote) => acc + vote.rating, 0);
         averageRating = sum;
+      } else if (rankingMethod === 'ranked') {
+        // For ranked voting, calculate points: 1st = 3 points, 2nd = 2 points, 3rd = 1 point
+        let points = 0;
+        
+        // Count votes by rank
+        trackVotes.forEach(vote => {
+          if (vote.rank === 1) {
+            points += 3;
+            votesByRank[1]++;
+          } else if (vote.rank === 2) {
+            points += 2;
+            votesByRank[2]++;
+          } else if (vote.rank === 3) {
+            points += 1;
+            votesByRank[3]++;
+          }
+        });
+        
+        averageRating = points;
       } else {
         // For favorite, the count of votes is the score
         averageRating = voteCount;
@@ -324,14 +379,15 @@ export const calculateRankings = (
       ...track,
       averageRating,
       voteCount,
-      userVote
+      userVote,
+      votesByRank
     } as TrackWithRanking;
   });
   
   // Sort tracks based on the ranking method
   let sortedTracks: TrackWithRanking[];
   
-  if (rankingMethod === 'star' || rankingMethod === 'updown') {
+  if (rankingMethod === 'star' || rankingMethod === 'updown' || rankingMethod === 'ranked') {
     // Sort by average rating (highest first)
     sortedTracks = [...tracksWithRanking].sort((a, b) => {
       // First by rating (descending)

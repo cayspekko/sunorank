@@ -127,7 +127,8 @@ const sunoPlaylistUrl = ref('')
 const rankingOptions = [
   { label: 'Star Rating (1-5)', value: 'star' },
   { label: 'Upvote/Downvote', value: 'updown' },
-  { label: 'Favorites', value: 'favorite' }
+  { label: 'Favorites', value: 'favorite' },
+  { label: 'Ranked (1st, 2nd, 3rd)', value: 'ranked' }
 ]
 
 const formValue = ref({
