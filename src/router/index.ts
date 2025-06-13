@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router'
 // import Home from '../views/Home.vue'
 import About from '../views/About.vue'
 import Contact from '../views/Contact.vue'
@@ -56,7 +56,7 @@ const routes: Array<RouteRecordRaw> = [
 
 // Use the correct base URL for GitHub Pages
 const router = createRouter({
-  history: createWebHistory(process.env.NODE_ENV === 'development' ? '/' : '/sunorank'),
+  history: createWebHashHistory(process.env.NODE_ENV === 'development' ? '/' : '/sunorank/'),
   routes
 })
 
