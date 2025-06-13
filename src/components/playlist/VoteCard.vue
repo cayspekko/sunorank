@@ -365,12 +365,17 @@ async function submitVote() {
   try {
     submitLoading.value = true
     
-    const voteData = {
+    // Create base vote data without the rank field
+    const voteData: any = {
       userId: user.value.uid,
       playlistId: props.playlistId,
       trackId: props.track.id,
-      rating: userRating.value,
-      rank: props.rankingMethod === 'ranked' ? userRank.value : undefined
+      rating: userRating.value
+    }
+    
+    // Only add rank field for ranked playlists
+    if (props.rankingMethod === 'ranked') {
+      voteData.rank = userRank.value
     }
     
     await playlistService.saveVote(voteData)

@@ -1,7 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow users to read any document
+    // Helper function to check if a playlist is public
+    function isPlaylistPublic(playlistId) {
+      return exists(/databases/$(database)/documents/playlists/$(playlistId)) &&
+             get(/databases/$(database)/documents/playlists/$(playlistId)).data.isPublic == true;
+    }
+    
+    // Allow authenticated users to read any document
     match /{document=**} {
       allow read: if request.auth != null;
     }
@@ -14,19 +20,25 @@ service cloud.firestore {
     
     // Allow users to create and manage their own playlists
     match /playlists/{playlistId} {
-      allow read: if request.auth != null;
+      // Allow public access to public playlists
+      allow read: if request.auth != null || resource.data.isPublic == true;
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
     
-    // Allow authenticated users to list all playlists (needed for queries)
+    // Allow listing playlists
     match /playlists {
-      allow list: if request.auth != null;
+      // Authenticated users can list all playlists
+      // Public users can only list public playlists
+      allow list: if request.auth != null || resource.data.isPublic == true;
     }
     
-    // Allow users to create, read, update, and delete their own votes
+    // Handle votes - combine rules for authenticated and public access
     match /votes/{voteId} {
-      allow read: if request.auth != null;
+      // Allow read access for votes if user is authenticated OR the vote belongs to a public playlist
+      allow read: if request.auth != null || 
+                  (resource.data.playlistId != null && 
+                   isPlaylistPublic(resource.data.playlistId));
       
       // Users can only create votes with their own userId
       allow create: if request.auth != null && 
@@ -43,9 +55,12 @@ service cloud.firestore {
                      get(/databases/$(database)/documents/playlists/$(resource.data.playlistId)).data.allowVoteChanges == true;
     }
     
-    // Allow authenticated users to list votes (needed for queries)
+    // Allow listing votes for public access
     match /votes {
-      allow list: if request.auth != null;
+      allow list: if request.auth != null || 
+                  (request.query.limit <= 500 && 
+                   request.query.filters[0].field == 'playlistId' && 
+                   isPlaylistPublic(request.query.filters[0].value));
     }
   }
 }

@@ -4,7 +4,7 @@
       <n-message-provider>
         <n-layout>
           <div class="app-container">
-            <header>
+            <header v-if="!isOverlayRoute">
               <n-card class="nav-card">
                 <div class="nav-container">
                   <nav class="main-nav">
@@ -72,9 +72,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { darkTheme } from 'naive-ui'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { 
   HomeOutline, 
   InformationCircleOutline, 
@@ -86,8 +86,14 @@ import {
 import { useAuth } from './composables/useAuth'
 import type { DropdownOption } from 'naive-ui'
 
-// Get router instance
+// Get router and route instances
 const router = useRouter()
+const route = useRoute()
+
+// Check if current route is the overlay route
+const isOverlayRoute = computed(() => {
+  return route.path.includes('/overlay/')
+})
 
 // Get authentication functionality
 const { 

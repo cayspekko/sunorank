@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SunoRank - Twitch Overlay</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <!-- Firebase App (the core Firebase SDK) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <!-- Add Firebase products that you want to use -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <style>
+    :root {
+      --primary-color: #8A6BFA; /* Purple from your theme */
+      --gold: #D4AF37;
+      --silver: #A9A9B0;
+      --bronze: #A97142;
+      --background-color: rgba(0, 0, 0, 0.7);
+      --text-color: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.7);
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      --transition: all 0.3s ease;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Roboto', sans-serif;
+      color: var(--text-color);
+      background-color: transparent;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .overlay-container {
+      width: 100%;
+      max-width: 600px;
+      background-color: var(--background-color);
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .overlay-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .playlist-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+
+    .voting-status {
+      background-color: #34a853;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .rankings {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .ranking-item {
+      display: flex;
+      align-items: center;
+      padding: 15px;
+      border-radius: 8px;
+      background-color: rgba(255, 255, 255, 0.1);
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ranking-item.gold {
+      border-left: 4px solid var(--gold);
+    }
+
+    .ranking-item.silver {
+      border-left: 4px solid var(--silver);
+    }
+
+    .ranking-item.bronze {
+      border-left: 4px solid var(--bronze);
+    }
+
+    .rank-medal {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 1.2rem;
+      margin-right: 15px;
+    }
+
+    .rank-medal.gold {
+      background-color: var(--gold);
+      color: #000;
+    }
+
+    .rank-medal.silver {
+      background-color: var(--silver);
+      color: #000;
+    }
+
+    .rank-medal.bronze {
+      background-color: var(--bronze);
+      color: #000;
+    }
+
+    .track-image {
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-right: 15px;
+      flex-shrink: 0;
+      background-color: rgba(0, 0, 0, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .track-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .music-icon {
+      font-size: 30px;
+      color: var(--text-secondary);
+    }
+
+    .track-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .track-title {
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-bottom: 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track-artist {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track-stats {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .star-rating {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .star {
+      color: #FFD700;
+      font-size: 1rem;
+    }
+
+    .score {
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+
+    .rank-votes {
+      display: flex;
+      gap: 8px;
+    }
+
+    .rank-tag {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .rank-tag.gold {
+      background-color: var(--gold);
+      color: #000;
+    }
+
+    .rank-tag.silver {
+      background-color: var(--silver);
+      color: #000;
+    }
+
+    .rank-tag.bronze {
+      background-color: var(--bronze);
+      color: #000;
+    }
+
+    .trophy-icon {
+      font-size: 0.9rem;
+    }
+
+    .controls {
+      margin-top: 20px;
+      text-align: center;
+      background-color: var(--background-color);
+      padding: 10px;
+      border-radius: 5px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .controls input {
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background-color: rgba(0, 0, 0, 0.3);
+      color: white;
+    }
+
+    .controls button {
+      padding: 8px 16px;
+      border-radius: 4px;
+      border: none;
+      background-color: var(--primary-color);
+      color: white;
+      cursor: pointer;
+    }
+
+    .placeholder {
+      text-align: center;
+      padding: 30px;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 200px;
+    }
+
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      border-top: 4px solid var(--primary-color);
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    /* Animations */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .rank-change-enter {
+      animation: slideIn 0.5s forwards;
+    }
+
+    .score-change {
+      animation: pulse 1s;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); color: #ffcc00; }
+      100% { transform: scale(1); }
+    }
+
+    /* Responsive styles */
+    @media (max-width: 768px) {
+      .overlay-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      
+      .rank-medal {
+        width: 30px;
+        height: 30px;
+        font-size: 1rem;
+        margin-right: 10px;
+      }
+      
+      .track-image {
+        width: 50px;
+        height: 50px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .overlay-container {
+        padding: 15px;
+      }
+      
+      .track-title {
+        font-size: 1rem;
+      }
+      
+      .track-artist {
+        font-size: 0.8rem;
+      }
+      
+      .rank-votes {
+        flex-direction: column;
+        gap: 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay-container">
+    <div class="overlay-header">
+      <h1 class="playlist-title" id="playlist-title">SunoRank Leaderboard</h1>
+      <div class="voting-status" id="voting-status">Voting Enabled</div>
+    </div>
+    
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+    </div>
+    
+    <div id="rankings" class="rankings hidden"></div>
+    
+    <div id="placeholder" class="placeholder hidden">
+      Enter a playlist ID to load rankings
+    </div>
+  </div>
+
+  <div class="controls">
+    <input type="text" id="playlist-id" placeholder="Enter Playlist ID">
+    <button id="load-btn">Load Rankings</button>
+    <button id="toggle-controls-btn">Hide Controls</button>
+  </div>
+
+  <script>
+    // Initialize Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyAovksTTeyENNuw2H3MNS0G7wN-upiEUrM",
+      authDomain: "sunorank.firebaseapp.com",
+      projectId: "sunorank",
+      storageBucket: "sunorank.firebasestorage.app",
+      messagingSenderId: "624060241796",
+      appId: "1:624060241796:web:5a14d86c3427b41c6b6fd1",
+      measurementId: "G-S8SJLGPCWL"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    
+    // Detect if we're in development mode (localhost)
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1';
+    
+    // Connect to emulators when in development mode
+    if (isLocalhost) {
+      console.log('🔥 Using Firebase emulators in development mode');
+      db.useEmulator('localhost', 8080);
+      firebase.auth().useEmulator('http://localhost:9099');
+      console.log('Connected to Firebase emulators');
+    }
+    
+    // HTML Elements
+    const playlistTitleEl = document.getElementById('playlist-title');
+    const votingStatusEl = document.getElementById('voting-status');
+    const loadingEl = document.getElementById('loading');
+    const rankingsEl = document.getElementById('rankings');
+    const placeholderEl = document.getElementById('placeholder');
+    const playlistIdInput = document.getElementById('playlist-id');
+    const loadBtn = document.getElementById('load-btn');
+    const toggleControlsBtn = document.getElementById('toggle-controls-btn');
+    
+    // State
+    let unsubscribeVotes = null;
+    let currentPlaylistId = null;
+    let currentRankings = [];
+    
+    // Utility functions
+    function showLoading() {
+      loadingEl.classList.remove('hidden');
+      rankingsEl.classList.add('hidden');
+      placeholderEl.classList.add('hidden');
+    }
+    
+    function showRankings() {
+      loadingEl.classList.add('hidden');
+      rankingsEl.classList.remove('hidden');
+      placeholderEl.classList.add('hidden');
+    }
+    
+    function showPlaceholder(message) {
+      loadingEl.classList.add('hidden');
+      rankingsEl.classList.add('hidden');
+      placeholderEl.classList.remove('hidden');
+      placeholderEl.textContent = message;
+    }
+    
+    function getRankClass(index) {
+      if (index === 0) return 'gold';
+      if (index === 1) return 'silver';
+      if (index === 2) return 'bronze';
+      return '';
+    }
+    
+    function formatStarRating(rating) {
+      const roundedRating = Math.round(rating * 2) / 2; // Round to nearest 0.5
+      let stars = '';
+      
+      for (let i = 1; i <= 5; i++) {
+        if (i <= roundedRating) {
+          stars += '<span class="star">★</span>';
+        } else if (i - 0.5 === roundedRating) {
+          stars += '<span class="star">★</span>';
+        } else {
+          stars += '<span class="star" style="opacity: 0.3">★</span>';
+        }
+      }
+      
+      return stars;
+    }
+    
+    // Main functionality
+    function loadPlaylist() {
+      const playlistId = playlistIdInput.value.trim();
+      
+      if (!playlistId) {
+        showPlaceholder('Please enter a playlist ID');
+        return;
+      }
+      
+      // Save to URL for easy sharing
+      const url = new URL(window.location);
+      url.searchParams.set('playlist', playlistId);
+      window.history.pushState({}, '', url);
+      
+      showLoading();
+      cleanupListeners();
+      currentPlaylistId = playlistId;
+      
+      // Fetch playlist data
+      db.collection('playlists').doc(playlistId).get()
+        .then(doc => {
+          if (!doc.exists) {
+            showPlaceholder('Playlist not found');
+            return;
+          }
+          
+          const playlist = { id: doc.id, ...doc.data() };
+          
+          // Update UI
+          playlistTitleEl.textContent = playlist.title || 'Playlist Rankings';
+          votingStatusEl.textContent = playlist.votingEnabled ? 'Voting Enabled' : 'Voting Disabled';
+          votingStatusEl.style.backgroundColor = playlist.votingEnabled ? '#34a853' : '#ea4335';
+          
+          // Set up real-time updates
+          setupVotesListener(playlistId, playlist);
+        })
+        .catch(error => {
+          console.error('Error loading playlist:', error);
+          showPlaceholder('Error loading playlist');
+        });
+    }
+    
+    function setupVotesListener(playlistId, playlist) {
+      console.log('Setting up votes listener for playlist:', playlistId);
+      
+      // Verify the playlist is public for unauthenticated access
+      if (!playlist.isPublic) {
+        showPlaceholder('This playlist is private. Public access is only available for public playlists.');
+        return;
+      }
+      
+      try {
+        // Listen for votes in real-time with a limit to improve performance
+        unsubscribeVotes = db.collection('votes')
+          .where('playlistId', '==', playlistId)
+          .limit(500) // Add limit to match security rules
+          .onSnapshot(snapshot => {
+            console.log('Received votes update with', snapshot.docs.length, 'votes');
+            const votes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            if (!playlist.tracks || !playlist.tracks.length) {
+              showPlaceholder('No tracks in this playlist');
+              return;
+            }
+            
+            // Calculate rankings based on votes
+            const rankings = calculateRankings(playlist.tracks, votes, playlist.rankingMethod);
+            const top3 = rankings.slice(0, 3);
+            
+            // Check for changes from previous rankings
+            const changedPositions = [];
+            
+            if (currentRankings.length > 0) {
+              top3.forEach((newRank, index) => {
+                const prevRankIndex = currentRankings.findIndex(r => r.id === newRank.id);
+                
+                if (prevRankIndex !== index || 
+                    (prevRankIndex !== -1 && currentRankings[prevRankIndex].averageRating !== newRank.averageRating) ||
+                    prevRankIndex === -1) {
+                  changedPositions.push(index);
+                }
+              });
+            } else {
+              // First load - all positions are "new"
+              for (let i = 0; i < top3.length; i++) {
+                changedPositions.push(i);
+              }
+            }
+            
+            currentRankings = [...top3];
+            displayRankings(top3, playlist.rankingMethod, changedPositions);
+          }, error => {
+            console.error('Error listening for votes:', error);
+            showPlaceholder(`Error listening for votes: ${error.message}`);
+          });
+      } catch (error) {
+        console.error('Error setting up votes listener:', error);
+        showPlaceholder(`Error setting up votes listener: ${error.message}`);
+      }
+    }
+    
+    function calculateRankings(tracks, votes, rankingMethod) {
+      // Group votes by track
+      const trackVotes = {};
+      
+      // Initialize tracks with vote data
+      const tracksWithRanking = tracks.map(track => {
+        const trackId = track.id;
+        const filteredVotes = votes.filter(vote => vote.trackId === trackId);
+        const voteCount = filteredVotes.length;
+        let averageRating = 0;
+        
+        // Count votes by rank (for ranked voting)
+        const votesByRank = { 1: 0, 2: 0, 3: 0 };
+        
+        if (voteCount > 0) {
+          if (rankingMethod === 'star') {
+            // Average star rating
+            const sum = filteredVotes.reduce((acc, vote) => acc + vote.rating, 0);
+            averageRating = sum / voteCount;
+          } else if (rankingMethod === 'updown') {
+            // Sum of upvotes/downvotes
+            const sum = filteredVotes.reduce((acc, vote) => acc + vote.rating, 0);
+            averageRating = sum;
+          } else if (rankingMethod === 'ranked') {
+            // Calculate points: 1st = 3 points, 2nd = 2 points, 3rd = 1 point
+            let points = 0;
+            
+            filteredVotes.forEach(vote => {
+              if (vote.rank === 1) {
+                points += 3;
+                votesByRank[1]++;
+              } else if (vote.rank === 2) {
+                points += 2;
+                votesByRank[2]++;
+              } else if (vote.rank === 3) {
+                points += 1;
+                votesByRank[3]++;
+              }
+            });
+            
+            averageRating = points;
+          } else {
+            // For favorite, count is the score
+            averageRating = voteCount;
+          }
+        }
+        
+        return {
+          ...track,
+          averageRating,
+          voteCount,
+          votesByRank
+        };
+      });
+      
+      // Sort tracks based on ranking method
+      let sortedTracks;
+      
+      if (rankingMethod === 'star' || rankingMethod === 'updown' || rankingMethod === 'ranked') {
+        sortedTracks = [...tracksWithRanking].sort((a, b) => {
+          // First by rating (descending)
+          const ratingDiff = (b.averageRating || 0) - (a.averageRating || 0);
+          if (ratingDiff !== 0) return ratingDiff;
+          
+          // Then by vote count (descending)
+          const countDiff = (b.voteCount || 0) - (a.voteCount || 0);
+          if (countDiff !== 0) return countDiff;
+          
+          // Finally by date added (newest first)
+          return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
+        });
+      } else {
+        // For favorite, sort by vote count
+        sortedTracks = [...tracksWithRanking].sort((a, b) => {
+          const countDiff = (b.voteCount || 0) - (a.voteCount || 0);
+          if (countDiff !== 0) return countDiff;
+          
+          return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
+        });
+      }
+      
+      // Add ranking position
+      sortedTracks.forEach((track, index) => {
+        track.rank = index + 1;
+      });
+      
+      return sortedTracks;
+    }
+    
+    function displayRankings(rankings, rankingMethod, changedPositions = []) {
+      if (rankings.length === 0) {
+        showPlaceholder('No rankings available');
+        return;
+      }
+      
+      rankingsEl.innerHTML = '';
+      
+      rankings.forEach((track, index) => {
+        const rankClass = getRankClass(index);
+        const trackElement = document.createElement('div');
+        trackElement.className = `ranking-item ${rankClass}`;
+        
+        if (changedPositions.includes(index)) {
+          trackElement.classList.add('rank-change-enter');
+        }
+        
+        // Create HTML for track
+        let innerHtml = `
+          <div class="rank-medal ${rankClass}">${index + 1}</div>
+          <div class="track-image">
+            ${track.imageUrl 
+              ? `<img src="${track.imageUrl}" alt="${track.title} cover">` 
+              : `<div class="music-icon">♫</div>`}
+          </div>
+          <div class="track-info">
+            <div class="track-title">${track.title}</div>
+            <div class="track-artist">${track.artist}</div>
+            <div class="track-stats">
+        `;
+        
+        // Add rating display based on ranking method
+        if (rankingMethod === 'star') {
+          innerHtml += `
+            <div class="star-rating">
+              ${formatStarRating(track.averageRating || 0)}
+              <span class="score">${(track.averageRating || 0).toFixed(1)}</span>
+            </div>
+          `;
+        } else if (rankingMethod === 'updown') {
+          innerHtml += `<span class="score">Score: ${(track.averageRating || 0).toFixed(0)}</span>`;
+        } else if (rankingMethod === 'ranked') {
+          innerHtml += `
+            <span class="score">Score: ${(track.averageRating || 0).toFixed(0)}</span>
+            <div class="rank-votes">
+              <span class="rank-tag gold">
+                <span class="trophy-icon">🏆</span>
+                ${track.votesByRank?.[1] || 0}
+              </span>
+              <span class="rank-tag silver">
+                <span class="trophy-icon">🏆</span>
+                ${track.votesByRank?.[2] || 0}
+              </span>
+              <span class="rank-tag bronze">
+                <span class="trophy-icon">🏆</span>
+                ${track.votesByRank?.[3] || 0}
+              </span>
+            </div>
+          `;
+        } else {
+          innerHtml += `<span class="score">${track.voteCount || 0} favorites</span>`;
+        }
+        
+        innerHtml += `
+            </div>
+          </div>
+        `;
+        
+        trackElement.innerHTML = innerHtml;
+        rankingsEl.appendChild(trackElement);
+        
+        // Add animation for changed scores
+        if (changedPositions.includes(index)) {
+          const scoreElement = trackElement.querySelector('.score');
+          if (scoreElement) {
+            scoreElement.classList.add('score-change');
+            setTimeout(() => {
+              scoreElement.classList.remove('score-change');
+            }, 1000);
+          }
+        }
+      });
+      
+      showRankings();
+    }
+    
+    function cleanupListeners() {
+      if (unsubscribeVotes) {
+        unsubscribeVotes();
+        unsubscribeVotes = null;
+      }
+    }
+    
+    // Event listeners
+    loadBtn.addEventListener('click', loadPlaylist);
+    
+    toggleControlsBtn.addEventListener('click', function() {
+      const controls = document.querySelector('.controls');
+      if (controls.classList.contains('hidden')) {
+        controls.classList.remove('hidden');
+        this.textContent = 'Hide Controls';
+      } else {
+        controls.classList.add('hidden');
+        this.textContent = 'Show Controls';
+      }
+    });
+    
+    // Also toggle controls with 'c' key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'c') {
+        const controls = document.querySelector('.controls');
+        controls.classList.toggle('hidden');
+        toggleControlsBtn.textContent = controls.classList.contains('hidden') ? 'Show Controls' : 'Hide Controls';
+      }
+    });
+    
+    // Check for playlist ID in URL
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const playlistId = urlParams.get('playlist');
+      
+      if (playlistId) {
+        playlistIdInput.value = playlistId;
+        loadPlaylist();
+      } else {
+        showPlaceholder('Enter a playlist ID to load rankings');
+      }
+    });
+    
+    // Clean up when page is closed
+    window.addEventListener('beforeunload', cleanupListeners);
+  </script>
+</body>
+</html>

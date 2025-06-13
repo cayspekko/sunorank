@@ -6,6 +6,7 @@ import Profile from '../views/Profile.vue'
 import Dashboard from '../views/Dashboard.vue'
 import PlaylistView from '../views/PlaylistView.vue'
 import VoteView from '../views/VoteView.vue'
+import OverlayView from '../views/OverlayView.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -43,6 +44,12 @@ const routes: Array<RouteRecordRaw> = [
     path: '/vote/:id',
     name: 'Vote',
     component: VoteView,
+    props: true
+  },
+  {
+    path: '/overlay/:id',
+    name: 'Overlay',
+    component: OverlayView,
     props: true
   }
 ]

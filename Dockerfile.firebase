@@ -9,6 +9,7 @@ WORKDIR /app
 RUN npm install -g firebase-tools@14.2.1 
 
 # Copy Firebase configuration files
+COPY .firebaserc ./
 COPY firebase.json ./
 COPY firestore.rules ./
 COPY firestore.indexes.json ./
