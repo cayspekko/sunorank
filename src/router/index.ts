@@ -56,7 +56,7 @@ const routes: Array<RouteRecordRaw> = [
 
 // Use the correct base URL for GitHub Pages
 const router = createRouter({
-  history: createWebHistory(process.env.NODE_ENV === 'development' ? '/' : '/sunorank/'),
+  history: createWebHistory(process.env.NODE_ENV === 'development' ? '/' : '/sunorank'),
   routes
 })
 
